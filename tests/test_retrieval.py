@@ -1,0 +1,191 @@
+"""
+Unit tests for embeddings, ChromaDB vector store, and semantic retriever.
+"""
+
+import pytest
+
+from app.ingestion.pdf_loader import DocumentChunk
+from app.retrieval.embeddings import EmbeddingModel
+from app.retrieval.vector_store import ChromaVectorStore
+from app.retrieval.retriever import RetrievedChunk, VectorRetriever
+
+
+@pytest.fixture(scope="module")
+def shared_embedding_model() -> EmbeddingModel:
+    """Create a module-scoped EmbeddingModel to avoid redundant model loading in tests."""
+    return EmbeddingModel(model_name="sentence-transformers/all-MiniLM-L6-v2")
+
+
+@pytest.fixture
+def memory_vector_store(shared_embedding_model: EmbeddingModel) -> ChromaVectorStore:
+    """Create a clean in-memory ChromaVectorStore for each test."""
+    store = ChromaVectorStore(
+        persist_directory=":memory:",
+        collection_name="test_collection",
+        embedding_model=shared_embedding_model,
+    )
+    store.clear()
+    return store
+
+
+@pytest.fixture
+def sample_chunks() -> list[DocumentChunk]:
+    """Create controlled, synthetic test document chunks."""
+    return [
+        DocumentChunk(
+            chunk_id="doc1_p1_c001",
+            text="The Eiffel Tower is a famous wrought-iron lattice tower located in Paris, France.",
+            source="paris_guide.pdf",
+            page_number=1,
+            metadata={"topic": "landmarks", "city": "Paris"},
+        ),
+        DocumentChunk(
+            chunk_id="doc1_p2_c001",
+            text="The Colosseum is an ancient amphitheatre located in the centre of Rome, Italy.",
+            source="rome_guide.pdf",
+            page_number=2,
+            metadata={"topic": "landmarks", "city": "Rome"},
+        ),
+        DocumentChunk(
+            chunk_id="doc2_p1_c001",
+            text="Photosynthesis is the process by which green plants use sunlight to synthesize nutrients.",
+            source="biology.pdf",
+            page_number=1,
+            metadata={"topic": "science"},
+        ),
+    ]
+
+
+# ============================================================================
+# Embedding Tests
+# ============================================================================
+
+
+def test_embeddings_return_correct_shape_and_type(shared_embedding_model: EmbeddingModel):
+    texts = [
+        "First document text for testing embeddings.",
+        "Second document about machine learning systems.",
+    ]
+    embeddings = shared_embedding_model.embed_documents(texts)
+
+    assert isinstance(embeddings, list)
+    assert len(embeddings) == 2
+    assert all(isinstance(vec, list) for vec in embeddings)
+    assert len(embeddings[0]) == shared_embedding_model.dimension
+    assert len(embeddings[1]) == shared_embedding_model.dimension
+    assert shared_embedding_model.dimension == 384
+
+
+def test_embed_query_returns_consistent_vector(shared_embedding_model: EmbeddingModel):
+    query = "Where is the Eiffel Tower?"
+    query_vec = shared_embedding_model.embed_query(query)
+
+    assert isinstance(query_vec, list)
+    assert len(query_vec) == shared_embedding_model.dimension
+    assert any(val != 0.0 for val in query_vec)
+
+
+def test_embed_documents_empty_list(shared_embedding_model: EmbeddingModel):
+    assert shared_embedding_model.embed_documents([]) == []
+
+
+# ============================================================================
+# Vector Store Tests
+# ============================================================================
+
+
+def test_vector_store_creation_and_insertion(
+    memory_vector_store: ChromaVectorStore,
+    sample_chunks: list[DocumentChunk],
+):
+    assert memory_vector_store.count() == 0
+
+    inserted_count = memory_vector_store.add_chunks(sample_chunks)
+    assert inserted_count == 3
+    assert memory_vector_store.count() == 3
+
+
+def test_vector_store_avoids_duplicate_inserts(
+    memory_vector_store: ChromaVectorStore,
+    sample_chunks: list[DocumentChunk],
+):
+    # Insert chunks first time
+    memory_vector_store.add_chunks(sample_chunks)
+    assert memory_vector_store.count() == 3
+
+    # Insert same chunks with identical chunk_ids (should update/upsert, not duplicate)
+    memory_vector_store.add_chunks(sample_chunks)
+    assert memory_vector_store.count() == 3
+
+
+def test_vector_store_clear(
+    memory_vector_store: ChromaVectorStore,
+    sample_chunks: list[DocumentChunk],
+):
+    memory_vector_store.add_chunks(sample_chunks)
+    assert memory_vector_store.count() == 3
+
+    memory_vector_store.clear()
+    assert memory_vector_store.count() == 0
+
+
+# ============================================================================
+# Retriever Tests
+# ============================================================================
+
+
+def test_retriever_finds_relevant_chunk(
+    memory_vector_store: ChromaVectorStore,
+    sample_chunks: list[DocumentChunk],
+):
+    memory_vector_store.add_chunks(sample_chunks)
+    retriever = VectorRetriever(vector_store=memory_vector_store)
+
+    results = retriever.retrieve(query="Tell me about Paris monument and Eiffel Tower", top_k=2)
+
+    assert len(results) == 2
+    assert all(isinstance(r, RetrievedChunk) for r in results)
+
+    # Top result should be the Paris Eiffel Tower chunk
+    top_result = results[0]
+    assert top_result.chunk_id == "doc1_p1_c001"
+    assert "Eiffel Tower" in top_result.text
+    assert top_result.source == "paris_guide.pdf"
+    assert top_result.page_number == 1
+    assert top_result.score > 0.4  # High cosine similarity
+    assert top_result.metadata.get("city") == "Paris"
+
+
+def test_retriever_respects_top_k(
+    memory_vector_store: ChromaVectorStore,
+    sample_chunks: list[DocumentChunk],
+):
+    memory_vector_store.add_chunks(sample_chunks)
+    retriever = VectorRetriever(vector_store=memory_vector_store)
+
+    results_k1 = retriever.retrieve(query="monuments in Europe", top_k=1)
+    assert len(results_k1) == 1
+
+    results_k3 = retriever.retrieve(query="monuments in Europe", top_k=3)
+    assert len(results_k3) == 3
+
+
+def test_retriever_empty_collection_behaves_safely(
+    memory_vector_store: ChromaVectorStore,
+):
+    assert memory_vector_store.count() == 0
+    retriever = VectorRetriever(vector_store=memory_vector_store)
+
+    results = retriever.retrieve(query="any query string", top_k=5)
+    assert results == []
+
+
+def test_retriever_empty_query_returns_empty_list(
+    memory_vector_store: ChromaVectorStore,
+    sample_chunks: list[DocumentChunk],
+):
+    memory_vector_store.add_chunks(sample_chunks)
+    retriever = VectorRetriever(vector_store=memory_vector_store)
+
+    assert retriever.retrieve(query="", top_k=5) == []
+    assert retriever.retrieve(query="   ", top_k=5) == []
