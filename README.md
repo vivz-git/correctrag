@@ -2,7 +2,7 @@
 
 CorrectRAG is a production-oriented implementation of the **Corrective Retrieval Augmented Generation** framework, designed to mitigate hallucinations in retrieval-augmented language models. By evaluating retrieved document quality prior to generation, the system dynamically routes queries across three confidence states: refining high-confidence internal documents, discarding low-confidence results in favor of rewritten web searches, or combining both when retrieval relevance is ambiguous.
 
-> **Status**: Baseline RAG + Retrieval Evaluator + Action Router + Knowledge Refinement + Query Rewriter implemented. Web search execution and full CRAG pipeline orchestration are **not yet implemented**.
+> **Status**: Baseline RAG + Retrieval Evaluator + Action Router + Knowledge Refinement + Query Rewriter + Web Search Adapter implemented. Full CRAG end-to-end pipeline orchestration is the **next milestone**.
 
 ---
 
@@ -126,6 +126,23 @@ Natural language questions often contain conversational filler, pronouns, and un
 
 ---
 
+## 🌐 CRAG Web Search Adapter
+
+### Why external search?
+
+When internal document retrieval fails to find relevant content (`INCORRECT`) or only provides partial evidence (`AMBIGUOUS`), CRAG queries public web search engines to retrieve authoritative external knowledge.
+
+### Implementation
+
+- **Provider**: Tavily (`tavily-python` SDK) optimized for LLM search grounding.
+- **Model**: `WebSearchResult(title, url, content, score)`.
+- **Client**: `WebSearchClient(api_key, max_results)` with clean error wrapping into `WebSearchError`.
+- **Scope**: The adapter handles external document fetching only; downstream filtering and pipeline orchestration remain decoupled.
+
+> **[OUR ADAPTATION]** The original CRAG paper used Google Search API via SerpAPI. Our production stack freezes Tavily as the sole external search provider.
+
+---
+
 ## 🛠️ Stack
 
 | Layer | Technology |
@@ -136,6 +153,7 @@ Natural language questions often contain conversational filler, pronouns, and un
 | Action Router | Pure Python Threshold Decision Logic \[PAPER\] |
 | Knowledge Refiner | Fine-Grained Strip Extraction & Filtering \[PAPER / ADAPTATION\] |
 | Query Rewriter | Few-Shot Keyword Extraction via `GeminiClient` \[OUR ADAPTATION\] |
+| Web Search | Tavily API via `tavily-python` \[OUR ADAPTATION\] |
 | Vector Store | ChromaDB (persistent + ephemeral) |
 | LLM | Google Gemini via `google-genai` SDK |
 | API Framework | FastAPI + Uvicorn |
@@ -168,7 +186,8 @@ correctrag/
 │       │   ├── action_router.py        # Three-way action trigger
 │       │   └── knowledge_refiner.py    # Strip decomposition & refinement
 │       └── external/
-│           └── query_rewriter.py       # Web search query formulation
+│           ├── query_rewriter.py       # Web search query formulation
+│           └── web_search.py           # Tavily web search adapter
 ├── scripts/
 │   ├── demo_retrieval.py       # Retrieval-only demo
 │   └── demo_rag.py             # Full RAG demo (retrieval + generation)
@@ -179,7 +198,8 @@ correctrag/
 │   ├── test_relevance_evaluator.py # Evaluator score mapping & caching
 │   ├── test_action_router.py       # Three-way action routing & threshold rules
 │   ├── test_knowledge_refiner.py   # Strip decomposition, filtering, recomposition
-│   └── test_query_rewriter.py      # Query keyword extraction & sanitization
+│   ├── test_query_rewriter.py      # Query keyword extraction & sanitization
+│   └── test_web_search.py          # Tavily search adapter & error handling
 ├── evaluation/                 # Placeholder for CRAG evaluation harness
 ├── configs/
 ├── docs/
@@ -200,10 +220,10 @@ pip install -r backend/requirements.txt
 
 ```bash
 cp .env.example .env
-# Edit .env — set GEMINI_API_KEY to your Google AI Studio key
+# Edit .env — set GEMINI_API_KEY and TAVILY_API_KEY
 ```
 
-### 3. Run Tests (No API Key Required)
+### 3. Run Tests (No API Keys Required)
 
 ```bash
 pytest -v
@@ -230,6 +250,8 @@ python scripts/demo_rag.py
 |---|---|---|---|
 | `GEMINI_API_KEY` | Yes (for generation) | — | Google AI Studio API key |
 | `GEMINI_MODEL` | No | `gemini-3.6-flash` | Gemini model identifier |
+| `TAVILY_API_KEY` | Yes (for web search) | — | Tavily search API key |
+| `TAVILY_MAX_RESULTS` | No | `5` | Maximum search results |
 
 ---
 
@@ -274,3 +296,4 @@ RAGResult
 | `test_action_router.py` | Threshold validation, boundary logic, multi-score routing, determinism |
 | `test_knowledge_refiner.py` | Strip decomposition, score evaluation, threshold filtering, order recomposition |
 | `test_query_rewriter.py` | Query keyword extraction, prefix & quote stripping, 3-term upper bound |
+| `test_web_search.py` | Tavily search adapter, WebSearchResult model, error wrapping |

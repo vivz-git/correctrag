@@ -7,3 +7,4 @@ sentence-transformers>=2.6.0
 chromadb>=0.4.24
 google-genai>=1.0.0
 python-dotenv>=1.0.0
+tavily-python>=0.3.0
