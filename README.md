@@ -2,7 +2,7 @@
 
 CorrectRAG is a production-oriented implementation of the **Corrective Retrieval Augmented Generation** framework, designed to mitigate hallucinations in retrieval-augmented language models. By evaluating retrieved document quality prior to generation, the system dynamically routes queries across three confidence states: refining high-confidence internal documents, discarding low-confidence results in favor of rewritten web searches, or combining both when retrieval relevance is ambiguous.
 
-> **Status**: Baseline RAG + Retrieval Evaluator + Action Router + Knowledge Refinement implemented. Web search fallback and full CRAG pipeline orchestration are **not yet implemented**.
+> **Status**: Baseline RAG + Retrieval Evaluator + Action Router + Knowledge Refinement + Query Rewriter implemented. Web search execution and full CRAG pipeline orchestration are **not yet implemented**.
 
 ---
 
@@ -110,6 +110,22 @@ $$\text{Retrieved Chunks} \longrightarrow \text{Decompose into Strips} \longrigh
 
 ---
 
+## 🔄 CRAG Query Rewriter
+
+### Why rewrite queries?
+
+Natural language questions often contain conversational filler, pronouns, and unnecessary phrasing that decrease retrieval precision in keyword- and web-search engines. When the action router triggers `INCORRECT` or `AMBIGUOUS`, CRAG rewrites the query to maximize external search effectiveness.
+
+### Format & Constraints
+
+- Extracts the core entities, key concepts, and intent.
+- Formulates a concise query composed of **at most 3 comma-separated search terms**.
+- Example from paper: `"What is Henry Feilden's occupation?"` $\longrightarrow$ `"Henry Feilden, occupation"`.
+
+> **[OUR ADAPTATION]** The original paper used GPT-3.5-Turbo. We reuse the centralized `GeminiClient` with a structured few-shot prompt and strict sanitization rules (stripping quotes, prefixes, bullets, and enforcing the 3-term upper limit).
+
+---
+
 ## 🛠️ Stack
 
 | Layer | Technology |
@@ -119,6 +135,7 @@ $$\text{Retrieved Chunks} \longrightarrow \text{Decompose into Strips} \longrigh
 | Retrieval Evaluator | `cross-encoder/ms-marco-MiniLM-L-6-v2` \[OUR ADAPTATION\] |
 | Action Router | Pure Python Threshold Decision Logic \[PAPER\] |
 | Knowledge Refiner | Fine-Grained Strip Extraction & Filtering \[PAPER / ADAPTATION\] |
+| Query Rewriter | Few-Shot Keyword Extraction via `GeminiClient` \[OUR ADAPTATION\] |
 | Vector Store | ChromaDB (persistent + ephemeral) |
 | LLM | Google Gemini via `google-genai` SDK |
 | API Framework | FastAPI + Uvicorn |
@@ -146,10 +163,12 @@ correctrag/
 │       │   ├── gemini_client.py  # Google GenAI SDK wrapper
 │       │   ├── prompt.py         # RAG prompt builder
 │       │   └── rag_pipeline.py   # BaselineRAG pipeline + RAGResult
-│       └── evaluation/
-│           ├── relevance_evaluator.py  # Query-document relevance scorer
-│           ├── action_router.py        # Three-way action trigger
-│           └── knowledge_refiner.py    # Strip decomposition & refinement
+│       ├── evaluation/
+│       │   ├── relevance_evaluator.py  # Query-document relevance scorer
+│       │   ├── action_router.py        # Three-way action trigger
+│       │   └── knowledge_refiner.py    # Strip decomposition & refinement
+│       └── external/
+│           └── query_rewriter.py       # Web search query formulation
 ├── scripts/
 │   ├── demo_retrieval.py       # Retrieval-only demo
 │   └── demo_rag.py             # Full RAG demo (retrieval + generation)
@@ -159,7 +178,8 @@ correctrag/
 │   ├── test_generation.py          # Prompt formatting, Gemini config, RAG pipeline
 │   ├── test_relevance_evaluator.py # Evaluator score mapping & caching
 │   ├── test_action_router.py       # Three-way action routing & threshold rules
-│   └── test_knowledge_refiner.py   # Strip decomposition, filtering, recomposition
+│   ├── test_knowledge_refiner.py   # Strip decomposition, filtering, recomposition
+│   └── test_query_rewriter.py      # Query keyword extraction & sanitization
 ├── evaluation/                 # Placeholder for CRAG evaluation harness
 ├── configs/
 ├── docs/
@@ -253,3 +273,4 @@ RAGResult
 | `test_relevance_evaluator.py` | Score mapping, input validation, batch processing, model caching |
 | `test_action_router.py` | Threshold validation, boundary logic, multi-score routing, determinism |
 | `test_knowledge_refiner.py` | Strip decomposition, score evaluation, threshold filtering, order recomposition |
+| `test_query_rewriter.py` | Query keyword extraction, prefix & quote stripping, 3-term upper bound |
