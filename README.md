@@ -2,7 +2,7 @@
 
 CorrectRAG is a production-oriented implementation of the **Corrective Retrieval Augmented Generation** framework, designed to mitigate hallucinations in retrieval-augmented language models. By evaluating retrieved document quality prior to generation, the system dynamically routes queries across three confidence states: refining high-confidence internal documents, discarding low-confidence results in favor of rewritten web searches, or combining both when retrieval relevance is ambiguous.
 
-> **Status**: Baseline RAG + Retrieval Evaluator + Action Router implemented. Knowledge refinement, web search fallback, and full CRAG pipeline orchestration are **not yet implemented**.
+> **Status**: Baseline RAG + Retrieval Evaluator + Action Router + Knowledge Refinement implemented. Web search fallback and full CRAG pipeline orchestration are **not yet implemented**.
 
 ---
 
@@ -17,7 +17,7 @@ CorrectRAG is a production-oriented implementation of the **Corrective Retrieval
 
 ## 🏗️ Architecture
 
-### Baseline RAG (Current)
+### Baseline RAG
 
 ```
 PDF Document
@@ -31,7 +31,7 @@ PDF Document
   → Grounded Answer + Citations
 ```
 
-### Planned CRAG Pipeline
+### CRAG Pipeline (In Progress)
 
 ```
 Query
@@ -87,7 +87,26 @@ Where $s_{\max} = \max_{i} (\text{score}_i)$, $\alpha$ is the upper confidence t
 The router contains **pure decision logic** only:
 - It receives a list of document relevance scores and outputs `"CORRECT"`, `"INCORRECT"`, or `"AMBIGUOUS"`.
 - It does not perform retrieval, refinement, or generation.
-- The downstream action branches (knowledge refinement for `CORRECT`, web search fallback for `INCORRECT`, and combined routing for `AMBIGUOUS`) will be implemented in subsequent milestones.
+
+---
+
+## ✂️ CRAG Knowledge Refinement
+
+### Why refine retrieved knowledge?
+
+Coarse retrieved chunks often contain irrelevant sentences alongside relevant facts. Feeding noisy chunks directly into the generator can cause hallucinations. CRAG refines internal knowledge through a multi-stage filtering and recomposition process:
+
+$$\text{Retrieved Chunks} \longrightarrow \text{Decompose into Strips} \longrightarrow \text{Score Strips} \longrightarrow \text{Filter by } \gamma \longrightarrow \text{Rank Top-}K \longrightarrow \text{Recompose Order}$$
+
+### Step-by-step workflow
+
+1. **Decompose**: Splits retrieved document chunks into fine-grained strips (targeting 1–3 sentences).
+2. **Score**: Evaluates each strip independently using `RelevanceEvaluator` to assign $s_i = \text{Evaluator}(\text{query}, \text{strip}_i)$.
+3. **Filter**: Discards any strip where $s_i < \gamma$ (where $\gamma$ is the configurable `filter_threshold`).
+4. **Rank & Select**: Sorts surviving strips by score and selects at most `top_k` strips.
+5. **Recompose**: Restores the selected strips to their original document sequence order (`position`), preserving natural reading flow.
+
+> **[NOTE]** The paper used $\gamma = -0.5$ tuned for their T5 evaluator. In our implementation, `filter_threshold` is configurable because our cross-encoder evaluator operates with a different score distribution.
 
 ---
 
@@ -99,6 +118,7 @@ The router contains **pure decision logic** only:
 | Embeddings | `sentence-transformers/all-MiniLM-L6-v2` |
 | Retrieval Evaluator | `cross-encoder/ms-marco-MiniLM-L-6-v2` \[OUR ADAPTATION\] |
 | Action Router | Pure Python Threshold Decision Logic \[PAPER\] |
+| Knowledge Refiner | Fine-Grained Strip Extraction & Filtering \[PAPER / ADAPTATION\] |
 | Vector Store | ChromaDB (persistent + ephemeral) |
 | LLM | Google Gemini via `google-genai` SDK |
 | API Framework | FastAPI + Uvicorn |
@@ -128,7 +148,8 @@ correctrag/
 │       │   └── rag_pipeline.py   # BaselineRAG pipeline + RAGResult
 │       └── evaluation/
 │           ├── relevance_evaluator.py  # Query-document relevance scorer
-│           └── action_router.py        # Three-way action trigger
+│           ├── action_router.py        # Three-way action trigger
+│           └── knowledge_refiner.py    # Strip decomposition & refinement
 ├── scripts/
 │   ├── demo_retrieval.py       # Retrieval-only demo
 │   └── demo_rag.py             # Full RAG demo (retrieval + generation)
@@ -137,7 +158,8 @@ correctrag/
 │   ├── test_retrieval.py           # Embeddings, vector store, retriever
 │   ├── test_generation.py          # Prompt formatting, Gemini config, RAG pipeline
 │   ├── test_relevance_evaluator.py # Evaluator score mapping & caching
-│   └── test_action_router.py       # Three-way action routing & threshold rules
+│   ├── test_action_router.py       # Three-way action routing & threshold rules
+│   └── test_knowledge_refiner.py   # Strip decomposition, filtering, recomposition
 ├── evaluation/                 # Placeholder for CRAG evaluation harness
 ├── configs/
 ├── docs/
@@ -230,3 +252,4 @@ RAGResult
 | `test_generation.py` | Prompt formatting, Gemini config, RAG pipeline (mocked LLM) |
 | `test_relevance_evaluator.py` | Score mapping, input validation, batch processing, model caching |
 | `test_action_router.py` | Threshold validation, boundary logic, multi-score routing, determinism |
+| `test_knowledge_refiner.py` | Strip decomposition, score evaluation, threshold filtering, order recomposition |
