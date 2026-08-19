@@ -2,7 +2,7 @@
 
 CorrectRAG is a production-oriented implementation of the **Corrective Retrieval Augmented Generation** framework, designed to mitigate hallucinations in retrieval-augmented language models. By evaluating retrieved document quality prior to generation, the system dynamically routes queries across three confidence states: refining high-confidence internal documents, discarding low-confidence results in favor of rewritten web searches, or combining both when retrieval relevance is ambiguous.
 
-> **Status**: Baseline RAG pipeline implemented. CRAG evaluator, routing, and knowledge refinement are **not yet implemented**.
+> **Status**: Baseline RAG + Retrieval Evaluator implemented. CRAG routing (CORRECT/INCORRECT/AMBIGUOUS), knowledge refinement, and web search are **not yet implemented**.
 
 ---
 
@@ -45,12 +45,44 @@ Query
 
 ---
 
+## 🔍 CRAG Retrieval Evaluator
+
+### Why an evaluator?
+
+Standard RAG blindly trusts retrieved documents. CRAG adds a **retrieval evaluator** that scores each retrieved document for relevance to the query before deciding how to use it. A low-confidence retrieval triggers a different action (web search fallback) than a high-confidence one.
+
+### What the paper uses
+
+> **[PAPER]** The original CRAG paper (arXiv:2401.15884v3) trains a **T5-large** model as the retrieval evaluator, fine-tuned specifically to classify query-document relevance into three confidence bands: *Correct*, *Incorrect*, and *Ambiguous*.
+
+### What we use (our adaptation)
+
+> **[OUR ADAPTATION]** We use the frozen cross-encoder **`cross-encoder/ms-marco-MiniLM-L-6-v2`** (Sentence-Transformers) as a practical production substitute. This model was not fine-tuned for CRAG — it is a general MS MARCO passage-ranking model. Raw logits are mapped to **[-1, 1]** via a temperature-scaled sigmoid:
+>
+> ```
+> p     = sigmoid(logit / temperature)
+> score = 2 * p - 1          →  [-1.0, +1.0]
+> ```
+>
+> This is an approximation. The resulting scores are **not equivalent** to the paper's T5 evaluator output.
+
+### Calibration status
+
+Calibration parameters (`temperature`) are **development defaults only** — they have not been fitted on a validation set. Scientific calibration requires held-out query-document pairs with human-labelled relevance judgements and is a future milestone.
+
+### Routing status
+
+**Routing is NOT implemented yet.** The evaluator produces scores in [-1, 1]. The CORRECT / INCORRECT / AMBIGUOUS action trigger (threshold-based routing) is the next milestone.
+
+---
+
 ## 🛠️ Stack
 
 | Layer | Technology |
 |---|---|
 | PDF Ingestion | PyMuPDF (`pymupdf`) |
 | Embeddings | `sentence-transformers/all-MiniLM-L6-v2` |
+| Retrieval Evaluator | `cross-encoder/ms-marco-MiniLM-L-6-v2` \[OUR ADAPTATION\] |
 | Vector Store | ChromaDB (persistent + ephemeral) |
 | LLM | Google Gemini via `google-genai` SDK |
 | API Framework | FastAPI + Uvicorn |
