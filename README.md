@@ -2,7 +2,7 @@
 
 CorrectRAG is a production-oriented implementation of the **Corrective Retrieval Augmented Generation** framework, designed to mitigate hallucinations in retrieval-augmented language models. By evaluating retrieved document quality prior to generation, the system dynamically routes queries across three confidence states: refining high-confidence internal documents, discarding low-confidence results in favor of rewritten web searches, or combining both when retrieval relevance is ambiguous.
 
-> **Status**: Baseline RAG + Retrieval Evaluator implemented. CRAG routing (CORRECT/INCORRECT/AMBIGUOUS), knowledge refinement, and web search are **not yet implemented**.
+> **Status**: Baseline RAG + Retrieval Evaluator + Action Router implemented. Knowledge refinement, web search fallback, and full CRAG pipeline orchestration are **not yet implemented**.
 
 ---
 
@@ -31,16 +31,16 @@ PDF Document
   → Grounded Answer + Citations
 ```
 
-> This is **standard RAG**. The CRAG evaluator, CORRECT/INCORRECT/AMBIGUOUS routing, knowledge refinement strips, and web search fallback are the **next milestones**.
-
-### Planned CRAG Pipeline (Next)
+### Planned CRAG Pipeline
 
 ```
 Query
-  → Retrieval Evaluator (confidence scoring)
+  → Semantic Retrieval (top-K chunks)
+  → Relevance Evaluator (score each chunk in [-1, 1])
+  → Action Router (s_max vs. alpha/beta)
       ├── CORRECT    → Knowledge Refinement → Generation
       ├── INCORRECT  → Query Rewriting → Web Search → Generation
-      └── AMBIGUOUS  → Both paths combined → Generation
+      └── AMBIGUOUS  → Combined Internal + Web Knowledge → Generation
 ```
 
 ---
@@ -70,9 +70,24 @@ Standard RAG blindly trusts retrieved documents. CRAG adds a **retrieval evaluat
 
 Calibration parameters (`temperature`) are **development defaults only** — they have not been fitted on a validation set. Scientific calibration requires held-out query-document pairs with human-labelled relevance judgements and is a future milestone.
 
-### Routing status
+---
 
-**Routing is NOT implemented yet.** The evaluator produces scores in [-1, 1]. The CORRECT / INCORRECT / AMBIGUOUS action trigger (threshold-based routing) is the next milestone.
+## 🔀 CRAG Action Router
+
+### Role of the Action Router
+
+The **Action Router** takes the individual relevance scores assigned by the evaluator to all retrieved documents and applies the CRAG decision rule to select one of three actions:
+
+$$\text{Action} = \begin{cases} \text{CORRECT}, & \text{if } s_{\max} > \alpha \\ \text{INCORRECT}, & \text{if } s_{\max} < \beta \\ \text{AMBIGUOUS}, & \text{if } \beta \le s_{\max} \le \alpha \end{cases}$$
+
+Where $s_{\max} = \max_{i} (\text{score}_i)$, $\alpha$ is the upper confidence threshold, and $\beta$ is the lower confidence threshold (with $-1.0 \le \beta < \alpha \le 1.0$).
+
+### Pure Decision Logic
+
+The router contains **pure decision logic** only:
+- It receives a list of document relevance scores and outputs `"CORRECT"`, `"INCORRECT"`, or `"AMBIGUOUS"`.
+- It does not perform retrieval, refinement, or generation.
+- The downstream action branches (knowledge refinement for `CORRECT`, web search fallback for `INCORRECT`, and combined routing for `AMBIGUOUS`) will be implemented in subsequent milestones.
 
 ---
 
@@ -83,6 +98,7 @@ Calibration parameters (`temperature`) are **development defaults only** — the
 | PDF Ingestion | PyMuPDF (`pymupdf`) |
 | Embeddings | `sentence-transformers/all-MiniLM-L6-v2` |
 | Retrieval Evaluator | `cross-encoder/ms-marco-MiniLM-L-6-v2` \[OUR ADAPTATION\] |
+| Action Router | Pure Python Threshold Decision Logic \[PAPER\] |
 | Vector Store | ChromaDB (persistent + ephemeral) |
 | LLM | Google Gemini via `google-genai` SDK |
 | API Framework | FastAPI + Uvicorn |
@@ -106,17 +122,22 @@ correctrag/
 │       │   ├── embeddings.py   # EmbeddingModel (SentenceTransformers)
 │       │   ├── vector_store.py # ChromaVectorStore wrapper
 │       │   └── retriever.py    # VectorRetriever → RetrievedChunk
-│       └── generation/
-│           ├── gemini_client.py  # Google GenAI SDK wrapper
-│           ├── prompt.py         # RAG prompt builder
-│           └── rag_pipeline.py   # BaselineRAG pipeline + RAGResult
+│       ├── generation/
+│       │   ├── gemini_client.py  # Google GenAI SDK wrapper
+│       │   ├── prompt.py         # RAG prompt builder
+│       │   └── rag_pipeline.py   # BaselineRAG pipeline + RAGResult
+│       └── evaluation/
+│           ├── relevance_evaluator.py  # Query-document relevance scorer
+│           └── action_router.py        # Three-way action trigger
 ├── scripts/
 │   ├── demo_retrieval.py       # Retrieval-only demo
 │   └── demo_rag.py             # Full RAG demo (retrieval + generation)
 ├── tests/
-│   ├── test_pdf_loader.py      # 14 ingestion tests
-│   ├── test_retrieval.py       # 10 retrieval tests
-│   └── test_generation.py      # 16 generation tests (mocked LLM)
+│   ├── test_pdf_loader.py          # PDF extraction, cleaning, chunking
+│   ├── test_retrieval.py           # Embeddings, vector store, retriever
+│   ├── test_generation.py          # Prompt formatting, Gemini config, RAG pipeline
+│   ├── test_relevance_evaluator.py # Evaluator score mapping & caching
+│   └── test_action_router.py       # Three-way action routing & threshold rules
 ├── evaluation/                 # Placeholder for CRAG evaluation harness
 ├── configs/
 ├── docs/
@@ -202,9 +223,10 @@ RAGResult
 
 ## ✅ Test Coverage
 
-| Suite | Tests | Coverage |
-|---|---|---|
-| `test_pdf_loader.py` | 14 | PDF extraction, cleaning, chunking, edge cases |
-| `test_retrieval.py` | 10 | Embeddings, vector store, retriever ranking |
-| `test_generation.py` | 16 | Prompt formatting, Gemini config, RAG pipeline (mocked) |
-| **Total** | **40** | |
+| Suite | Focus Area |
+|---|---|
+| `test_pdf_loader.py` | PDF extraction, cleaning, deterministic chunking, edge cases |
+| `test_retrieval.py` | Embeddings, vector store persistence/deduplication, retriever ranking |
+| `test_generation.py` | Prompt formatting, Gemini config, RAG pipeline (mocked LLM) |
+| `test_relevance_evaluator.py` | Score mapping, input validation, batch processing, model caching |
+| `test_action_router.py` | Threshold validation, boundary logic, multi-score routing, determinism |
