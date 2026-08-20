@@ -1,0 +1,257 @@
+{
+  "metadata": {
+    "version": "1.0",
+    "description": "CorrectRAG evaluation dataset for comparing Baseline RAG vs CRAG",
+    "document_context": "CRAG paper: 'Corrective Retrieval Augmented Generation', arXiv:2401.15884v3",
+    "created": "2026-08-20",
+    "total_questions": 30,
+    "engineering_note": "This is an engineering evaluation dataset, NOT a reproduction of the benchmark numbers reported in the CRAG paper (Table 1/2). The paper evaluated on PopQA, Biography, PubHealth, and Arc-Challenge datasets with different metrics.",
+    "categories": {
+      "INTERNAL_SUPPORTED": "Questions that can be answered from the internal document collection. CRAG should take CORRECT action. Baseline should also perform well.",
+      "INTERNAL_IRRELEVANT": "Questions for which the internal documents contain no useful evidence. CRAG should take INCORRECT action and fall back to web search. Baseline should fail or produce low-quality answers.",
+      "INTERNAL_PARTIAL": "Questions where internal documents contain partial evidence but external sources add material value. CRAG should take AMBIGUOUS action and combine both sources."
+    }
+  },
+  "questions": [
+    {
+      "id": "q001",
+      "category": "INTERNAL_SUPPORTED",
+      "question": "What does CRAG stand for?",
+      "reference_answer": "Corrective Retrieval Augmented Generation",
+      "expected_sources": null,
+      "notes": "Directly stated in the paper title and abstract. Should be trivially answerable from internal documents."
+    },
+    {
+      "id": "q002",
+      "category": "INTERNAL_SUPPORTED",
+      "question": "What are the three actions defined by CRAG's action trigger?",
+      "reference_answer": "CORRECT, INCORRECT, and AMBIGUOUS",
+      "expected_sources": null,
+      "notes": "Section 3 of the paper explicitly defines the three-way action trigger. Core paper content."
+    },
+    {
+      "id": "q003",
+      "category": "INTERNAL_SUPPORTED",
+      "question": "What retrieval evaluator model does the CRAG paper use?",
+      "reference_answer": "T5-large fine-tuned on question-document relevance pairs",
+      "expected_sources": null,
+      "notes": "Section 4 describes the T5-large evaluator. Our system uses a CrossEncoder adaptation, but the paper uses T5-large."
+    },
+    {
+      "id": "q004",
+      "category": "INTERNAL_SUPPORTED",
+      "question": "What notation does the CRAG paper use for the maximum relevance score across retrieved documents?",
+      "reference_answer": "s_max or the maximum of the individual relevance scores s_i",
+      "expected_sources": null,
+      "notes": "Algorithm 1 computes confidence from individual document scores {score1, ..., scorek} and threshold rules; s_max is our project's formalization of this maximum relevance score."
+    },
+    {
+      "id": "q005",
+      "category": "INTERNAL_SUPPORTED",
+      "question": "What web search engine does the CRAG paper use for external knowledge retrieval?",
+      "reference_answer": "Google Search API",
+      "expected_sources": null,
+      "notes": "Section 4.5 / Appendix describes use of Google Search API. Our adaptation uses Tavily instead."
+    },
+    {
+      "id": "q006",
+      "category": "INTERNAL_SUPPORTED",
+      "question": "Which datasets were used to evaluate CRAG in the paper?",
+      "reference_answer": "PopQA, Biography, PubHealth, and Arc-Challenge",
+      "expected_sources": null,
+      "notes": "Section 5.1 (Page 6) and Table 1 (Page 7) list PopQA, Biography, PubHealth, and Arc-Challenge as the four evaluation datasets."
+    },
+    {
+      "id": "q007",
+      "category": "INTERNAL_SUPPORTED",
+      "question": "What is knowledge refinement in the context of CRAG?",
+      "reference_answer": "The process of decomposing retrieved documents into fine-grained knowledge strips, scoring each strip for relevance, filtering irrelevant strips, and recomposing the remaining strips for generation.",
+      "expected_sources": null,
+      "notes": "Section 4.4 describes knowledge refinement. Should be clearly answerable from the paper."
+    },
+    {
+      "id": "q008",
+      "category": "INTERNAL_SUPPORTED",
+      "question": "What does the INCORRECT action trigger in CRAG cause the system to do?",
+      "reference_answer": "Discard the internally retrieved documents and use web search to obtain external knowledge for generation.",
+      "expected_sources": null,
+      "notes": "Algorithm 1 defines the INCORRECT branch behavior. Core paper content."
+    },
+    {
+      "id": "q009",
+      "category": "INTERNAL_SUPPORTED",
+      "question": "Who are the authors of the CRAG paper?",
+      "reference_answer": "Shi-Qi Yan, Jia-Chen Gu, Yun Zhu, and Zhen-Hua Ling",
+      "expected_sources": null,
+      "notes": "Author list appears on the paper cover page. Straightforward retrieval question."
+    },
+    {
+      "id": "q010",
+      "category": "INTERNAL_SUPPORTED",
+      "question": "What is the AMBIGUOUS action in CRAG and when is it triggered?",
+      "reference_answer": "AMBIGUOUS is triggered when the maximum relevance score falls between the lower threshold beta and the upper threshold alpha. It causes the system to combine refined internal documents with external web search results.",
+      "expected_sources": null,
+      "notes": "Algorithm 1 and Section 3 define AMBIGUOUS. Combined internal and external knowledge scenario."
+    },
+    {
+      "id": "q011",
+      "category": "INTERNAL_IRRELEVANT",
+      "question": "What is the capital city of France?",
+      "reference_answer": "Paris",
+      "expected_sources": null,
+      "notes": "General world knowledge not present in the CRAG paper. Should force INCORRECT action in CRAG, triggering web search. Baseline should fail to find relevant chunks."
+    },
+    {
+      "id": "q012",
+      "category": "INTERNAL_IRRELEVANT",
+      "question": "In what year was the Python programming language first released?",
+      "reference_answer": "1991",
+      "expected_sources": null,
+      "notes": "Historical CS fact unrelated to CRAG paper content. Tests INCORRECT path."
+    },
+    {
+      "id": "q013",
+      "category": "INTERNAL_IRRELEVANT",
+      "question": "What is the boiling point of water at standard atmospheric pressure?",
+      "reference_answer": "100 degrees Celsius (212 degrees Fahrenheit)",
+      "expected_sources": null,
+      "notes": "Basic physics fact absent from the paper. Should trigger INCORRECT action."
+    },
+    {
+      "id": "q014",
+      "category": "INTERNAL_IRRELEVANT",
+      "question": "Who wrote the play Romeo and Juliet?",
+      "reference_answer": "William Shakespeare",
+      "expected_sources": null,
+      "notes": "Literary knowledge completely unrelated to NLP or retrieval systems."
+    },
+    {
+      "id": "q015",
+      "category": "INTERNAL_IRRELEVANT",
+      "question": "What is the chemical symbol for gold?",
+      "reference_answer": "Au",
+      "expected_sources": null,
+      "notes": "Chemistry fact not in the CRAG paper. Tests hard INCORRECT routing."
+    },
+    {
+      "id": "q016",
+      "category": "INTERNAL_IRRELEVANT",
+      "question": "How many planets are in the solar system?",
+      "reference_answer": "Eight (Mercury, Venus, Earth, Mars, Jupiter, Saturn, Uranus, Neptune)",
+      "expected_sources": null,
+      "notes": "Astronomy fact completely absent from paper content."
+    },
+    {
+      "id": "q017",
+      "category": "INTERNAL_IRRELEVANT",
+      "question": "What is the current population of Tokyo?",
+      "reference_answer": "Approximately 13-14 million in the city proper, 37-38 million in greater Tokyo",
+      "expected_sources": null,
+      "notes": "Current real-world fact requiring external/live data. Classic use case for web search fallback."
+    },
+    {
+      "id": "q018",
+      "category": "INTERNAL_IRRELEVANT",
+      "question": "Who painted the Mona Lisa?",
+      "reference_answer": "Leonardo da Vinci",
+      "expected_sources": null,
+      "notes": "Art history knowledge not in the paper."
+    },
+    {
+      "id": "q019",
+      "category": "INTERNAL_IRRELEVANT",
+      "question": "What programming language is TensorFlow primarily written in?",
+      "reference_answer": "C++ (with Python bindings)",
+      "expected_sources": null,
+      "notes": "ML framework implementation detail not in the CRAG paper. Should trigger INCORRECT."
+    },
+    {
+      "id": "q020",
+      "category": "INTERNAL_IRRELEVANT",
+      "question": "What is the largest ocean on Earth?",
+      "reference_answer": "The Pacific Ocean",
+      "expected_sources": null,
+      "notes": "Geography fact absent from paper. Should produce low internal relevance scores."
+    },
+    {
+      "id": "q021",
+      "category": "INTERNAL_PARTIAL",
+      "question": "What are the main limitations of standard Retrieval Augmented Generation?",
+      "reference_answer": "Standard RAG blindly trusts retrieved documents regardless of their relevance quality, which can lead to hallucinations when retrieved documents are irrelevant or misleading.",
+      "expected_sources": null,
+      "notes": "The CRAG paper discusses RAG limitations in its motivation section, but a comprehensive answer benefits from broader literature. Partial evidence internally."
+    },
+    {
+      "id": "q022",
+      "category": "INTERNAL_PARTIAL",
+      "question": "What is the T5 model and how is it typically used in NLP tasks?",
+      "reference_answer": "T5 (Text-to-Text Transfer Transformer) is a transformer model by Google that reformulates NLP tasks as text-to-text problems. It is used for classification, summarization, translation, and question answering.",
+      "expected_sources": null,
+      "notes": "The CRAG paper uses T5-large as its evaluator, but a full explanation of T5 requires external references."
+    },
+    {
+      "id": "q023",
+      "category": "INTERNAL_PARTIAL",
+      "question": "How does BM25 differ from dense vector retrieval?",
+      "reference_answer": "BM25 is a sparse lexical retrieval method based on term frequency and inverse document frequency. Dense retrieval uses neural embeddings to represent queries and documents in a continuous vector space.",
+      "expected_sources": null,
+      "notes": "The paper mentions hybrid retrieval (BM25 + dense), but a detailed comparison requires external sources."
+    },
+    {
+      "id": "q024",
+      "category": "INTERNAL_PARTIAL",
+      "question": "What is hallucination in large language models?",
+      "reference_answer": "Hallucination refers to the tendency of LLMs to generate factually incorrect, fabricated, or unsupported statements that are presented with apparent confidence.",
+      "expected_sources": null,
+      "notes": "CRAG paper motivates the work with hallucination as a problem. A full definition and context benefits from external sources."
+    },
+    {
+      "id": "q025",
+      "category": "INTERNAL_PARTIAL",
+      "question": "What is ChatGPT and how does it relate to RAG systems?",
+      "reference_answer": "ChatGPT is a conversational AI assistant developed by OpenAI based on GPT models. RAG systems augment language models like ChatGPT with external retrieved knowledge to reduce hallucinations and improve factual accuracy.",
+      "expected_sources": null,
+      "notes": "The paper references ChatGPT-related systems in context; external sources needed for comprehensive answer."
+    },
+    {
+      "id": "q026",
+      "category": "INTERNAL_PARTIAL",
+      "question": "How is factual accuracy typically measured in question answering systems?",
+      "reference_answer": "Common metrics include exact match (EM), accuracy, F1 score over token overlap, and FactScore. The CRAG paper uses Accuracy for PopQA, PubHealth, and Arc-Challenge, and FactScore for Biography.",
+      "expected_sources": null,
+      "notes": "Section 5.1 of the paper defines Accuracy (PopQA, PubHealth, Arc-Challenge) and FactScore (Biography), while broader QA literature uses EM and F1."
+    },
+    {
+      "id": "q027",
+      "category": "INTERNAL_PARTIAL",
+      "question": "What are transformer attention mechanisms and why are they important for language models?",
+      "reference_answer": "Transformer attention mechanisms allow models to weigh the relevance of different input tokens when producing each output token. This enables modeling of long-range dependencies and is the foundation of modern language models.",
+      "expected_sources": null,
+      "notes": "Paper uses transformer-based models throughout, but explanation of attention requires broader ML literature."
+    },
+    {
+      "id": "q028",
+      "category": "INTERNAL_PARTIAL",
+      "question": "What is the role of fine-tuning in adapting pretrained language models for specific tasks?",
+      "reference_answer": "Fine-tuning adapts a pretrained model to a specific task or domain by training it on a smaller task-specific dataset. The CRAG paper fine-tunes T5-large as its retrieval evaluator.",
+      "expected_sources": null,
+      "notes": "Paper fine-tunes T5 as evaluator (internal evidence), but general fine-tuning explanation needs external sources."
+    },
+    {
+      "id": "q029",
+      "category": "INTERNAL_PARTIAL",
+      "question": "How does query rewriting improve web search performance in RAG systems?",
+      "reference_answer": "Query rewriting converts verbose natural language questions into concise, keyword-focused search queries that better match search engine retrieval patterns. The CRAG paper rewrites queries to maximize external search effectiveness.",
+      "expected_sources": null,
+      "notes": "CRAG paper describes its query rewriting approach; broader IR literature needed for full context."
+    },
+    {
+      "id": "q030",
+      "category": "INTERNAL_PARTIAL",
+      "question": "What is the difference between open-domain and closed-domain question answering?",
+      "reference_answer": "Open-domain QA answers questions from any domain using large corpora or the web. Closed-domain QA answers questions restricted to a specific knowledge source. CRAG operates in the open-domain setting.",
+      "expected_sources": null,
+      "notes": "CRAG paper focuses on open-domain QA; full explanation of the distinction requires external references."
+    }
+  ]
+}
