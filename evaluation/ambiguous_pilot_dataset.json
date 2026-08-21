@@ -1,0 +1,26 @@
+{
+  "metadata": {
+    "version": "ambiguous-pilot-1.0",
+    "description": "Two-question live pilot for validating the CRAG AMBIGUOUS path",
+    "source_dataset": "evaluation/dataset.json",
+    "question_count": 2
+  },
+  "questions": [
+    {
+      "id": "q010",
+      "category": "INTERNAL_SUPPORTED",
+      "question": "What is the AMBIGUOUS action in CRAG and when is it triggered?",
+      "reference_answer": "AMBIGUOUS is triggered when the maximum relevance score falls between the lower threshold beta and the upper threshold alpha. It causes the system to combine refined internal documents with external web search results.",
+      "expected_sources": null,
+      "notes": "Algorithm 1 and Section 3 define AMBIGUOUS. Combined internal and external knowledge scenario."
+    },
+    {
+      "id": "q025",
+      "category": "INTERNAL_PARTIAL",
+      "question": "What is ChatGPT and how does it relate to RAG systems?",
+      "reference_answer": "ChatGPT is a conversational AI assistant developed by OpenAI based on GPT models. RAG systems augment language models like ChatGPT with external retrieved knowledge to reduce hallucinations and improve factual accuracy.",
+      "expected_sources": null,
+      "notes": "The paper references ChatGPT-related systems in context; external sources needed for comprehensive answer."
+    }
+  ]
+}

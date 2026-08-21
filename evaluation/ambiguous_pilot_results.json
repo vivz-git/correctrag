@@ -1,0 +1,124 @@
+{
+  "run_metadata": {
+    "timestamp": "2026-08-21T10:04:54.548136+00:00",
+    "dataset_version": "ambiguous-pilot-1.0",
+    "document_context": null,
+    "total_records": 4,
+    "systems": [
+      "baseline",
+      "crag"
+    ]
+  },
+  "records": [
+    {
+      "question_id": "q010",
+      "category": "INTERNAL_SUPPORTED",
+      "question": "What is the AMBIGUOUS action in CRAG and when is it triggered?",
+      "system": "baseline",
+      "answer": "The **Ambiguous** action is a soft, balanced intermediate action that merges aspects of both the Correct and Incorrect actions. It is triggered when the system cannot make a confident judgment about whether the retrieved knowledge is correct or incorrect. 【1†page 5】【3†page 3】",
+      "action": null,
+      "retrieved_count": 5,
+      "relevance_scores": [],
+      "citations": [
+        "CRAG.pdf p.5",
+        "CRAG.pdf p.5",
+        "CRAG.pdf p.3",
+        "CRAG.pdf p.16",
+        "CRAG.pdf p.8"
+      ],
+      "latency_seconds": 9.364,
+      "status": "success",
+      "error_message": null,
+      "timestamp": "2026-08-21T10:04:21.799358+00:00",
+      "extra": {}
+    },
+    {
+      "question_id": "q025",
+      "category": "INTERNAL_PARTIAL",
+      "question": "What is ChatGPT and how does it relate to RAG systems?",
+      "system": "baseline",
+      "answer": "I cannot answer this question based on the provided context.",
+      "action": null,
+      "retrieved_count": 5,
+      "relevance_scores": [],
+      "citations": [
+        "CRAG.pdf p.2",
+        "CRAG.pdf p.13",
+        "CRAG.pdf p.10",
+        "CRAG.pdf p.12",
+        "CRAG.pdf p.7"
+      ],
+      "latency_seconds": 1.062,
+      "status": "success",
+      "error_message": null,
+      "timestamp": "2026-08-21T10:04:22.865179+00:00",
+      "extra": {}
+    },
+    {
+      "question_id": "q010",
+      "category": "INTERNAL_SUPPORTED",
+      "question": "What is the AMBIGUOUS action in CRAG and when is it triggered?",
+      "system": "crag",
+      "answer": "The **AMBIGUOUS** action is a soft, balanced response that merges the retrieved documents with additional web‑search results (or otherwise combines both sources). It is triggered when the retrieval evaluator cannot confidently label the retrieved set as either **Correct** (at least one document scores above a high confidence threshold) or **Incorrect** (all documents score below a low confidence threshold). In other words, if the document scores fall between the two thresholds, the system selects the **Ambiguous** action.  \n\nSources: [1], page 3; [8] (web).",
+      "action": "AMBIGUOUS",
+      "retrieved_count": 5,
+      "relevance_scores": [
+        -0.7799657446774473,
+        -0.7314678507835684,
+        0.395650732766623,
+        -0.08926663454629746,
+        -0.6149007199801628
+      ],
+      "citations": [
+        "CRAG.pdf p.3",
+        "CRAG.pdf p.16",
+        "CRAG.pdf p.8",
+        "https://medium.com/@sahin.samia/crag-corrective-retrieval-augmented-generation-in-llm-what-it-is-and-how-it-works-ce24db3343a7 p.1",
+        "https://cobusgreyling.substack.com/p/corrective-rag-crag p.1",
+        "https://dev.to/wonderlab/rag-series-15-crag-self-correcting-when-retrieval-falls-short-27ij p.1",
+        "https://www.emergentmind.com/topics/corrective-retrieval-augmented-generation-crag p.1"
+      ],
+      "latency_seconds": 25.606,
+      "status": "success",
+      "error_message": null,
+      "timestamp": "2026-08-21T10:04:48.470530+00:00",
+      "extra": {
+        "rewritten_query": "CRAG, AMBIGUOUS action, trigger",
+        "internal_strip_count": 3,
+        "external_strip_count": 5,
+        "max_relevance_score": 0.395650732766623,
+        "final_context_source": "combined"
+      }
+    },
+    {
+      "question_id": "q025",
+      "category": "INTERNAL_PARTIAL",
+      "question": "What is ChatGPT and how does it relate to RAG systems?",
+      "system": "crag",
+      "answer": "ChatGPT is a proprietary large language model (LLM) that, along with models like LLaMA2‑chat13B, is included in standard Retrieval‑Augmented Generation (RAG) systems.  \n\nSources: [CRAG.pdf, page 7]",
+      "action": "AMBIGUOUS",
+      "retrieved_count": 5,
+      "relevance_scores": [
+        -0.9918784482919378,
+        -0.9907202067216523,
+        -0.9878989178603225,
+        -0.9240432768380313,
+        0.3099300088133774
+      ],
+      "citations": [
+        "CRAG.pdf p.7"
+      ],
+      "latency_seconds": 6.075,
+      "status": "success",
+      "error_message": null,
+      "timestamp": "2026-08-21T10:04:54.546110+00:00",
+      "extra": {
+        "rewritten_query": "Please provide the question you’d like turned into a search query.",
+        "internal_strip_count": 1,
+        "external_strip_count": 0,
+        "max_relevance_score": 0.3099300088133774,
+        "final_context_source": "internal"
+      }
+    }
+  ]
+}
