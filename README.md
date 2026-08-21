@@ -379,6 +379,39 @@ curl -X POST http://localhost:8000/query \
 
 ---
 
+## 🖥️ Browser UI Demo
+
+A lightweight, zero-dependency browser interface is available in `frontend/`.
+
+### 1. Start the FastAPI backend
+```bash
+uvicorn backend.app.main:app --reload --port 8000
+```
+
+### 2. Start the Frontend
+
+You can either serve the static frontend with Python's built-in HTTP server or open the file directly:
+
+```bash
+# Option A: Simple HTTP server (Recommended)
+python -m http.server 3000 --directory frontend
+
+# Then visit: http://localhost:3000 in your browser
+```
+
+```bash
+# Option B: Direct browser open
+# Simply double-click frontend/index.html or open it in your browser.
+```
+
+### Features
+- **Live API status indicator**: Pings `GET /health` to display backend connectivity.
+- **CRAG action badges**: Color-coded indicators (`CORRECT`, `AMBIGUOUS`, `INCORRECT`).
+- **Internal & Web provenance**: Displays source filenames, page numbers, similarity scores, and clickable external links.
+- **Collapsible execution trace**: Shows operational metadata ($s_{\max}$, strip counts, search query) without chain-of-thought.
+
+---
+
 ## ✅ Test Coverage
 
 | Suite | Focus Area |

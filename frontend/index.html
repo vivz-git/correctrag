@@ -1,0 +1,174 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>CorrectRAG — Corrective Retrieval Augmented Generation</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <div class="app-container">
+    <!-- Header -->
+    <header class="app-header">
+      <div class="header-brand">
+        <div class="logo-badge">CRAG</div>
+        <div>
+          <h1 class="brand-title">CorrectRAG</h1>
+          <p class="brand-subtitle">Corrective Retrieval Augmented Generation</p>
+        </div>
+      </div>
+      <div class="header-status">
+        <div id="apiStatusPill" class="status-pill status-checking">
+          <span class="status-dot"></span>
+          <span id="apiStatusText" class="status-label">Checking API...</span>
+        </div>
+      </div>
+    </header>
+
+    <!-- Main Content Area -->
+    <main class="main-content">
+      <!-- Query Input Card -->
+      <section class="card query-card">
+        <form id="queryForm" class="query-form">
+          <label for="queryInput" class="input-label">Ask a question across the document store and web fallback</label>
+          <div class="textarea-wrapper">
+            <textarea
+              id="queryInput"
+              class="query-textarea"
+              placeholder="What is CRAG and what are its three actions?"
+              rows="3"
+              required
+            ></textarea>
+          </div>
+          <div class="query-actions">
+            <div class="shortcut-hint">
+              <kbd>Enter</kbd> to submit &bull; <kbd>Shift + Enter</kbd> for newline
+            </div>
+            <button type="submit" id="submitBtn" class="btn btn-primary">
+              <span id="btnSpinner" class="spinner hidden"></span>
+              <span id="btnText">Ask CorrectRAG</span>
+            </button>
+          </div>
+        </form>
+
+        <!-- Quick Sample Queries -->
+        <div class="sample-queries">
+          <span class="sample-label">Examples:</span>
+          <button type="button" class="sample-chip" data-query="What is CRAG and what are its three actions?">What is CRAG?</button>
+          <button type="button" class="sample-chip" data-query="What is ChatGPT and how does it relate to RAG systems?">ChatGPT & RAG</button>
+          <button type="button" class="sample-chip" data-query="Who wrote the play Romeo and Juliet?">Romeo & Juliet (Web fallback)</button>
+          <button type="button" class="sample-chip" data-query="What is the role of fine-tuning in adapting pretrained language models?">Fine-tuning in LLMs</button>
+        </div>
+      </section>
+
+      <!-- Error Banner -->
+      <div id="errorBanner" class="error-banner hidden" role="alert">
+        <div class="error-icon">⚠️</div>
+        <div class="error-content">
+          <h4 id="errorTitle" class="error-title">Error</h4>
+          <p id="errorMessage" class="error-message"></p>
+        </div>
+      </div>
+
+      <!-- Results Container (hidden until query is answered) -->
+      <div id="resultsContainer" class="results-container hidden">
+        <!-- Answer Card -->
+        <section class="card answer-card">
+          <div class="card-header">
+            <div class="header-left">
+              <h2 class="card-title">Generated Answer</h2>
+            </div>
+            <div class="header-right">
+              <span id="actionBadge" class="action-badge action-correct">CORRECT</span>
+            </div>
+          </div>
+          <div class="card-body">
+            <div id="answerText" class="answer-content"></div>
+          </div>
+        </section>
+
+        <!-- Sources Section -->
+        <section class="card sources-card">
+          <div class="card-header">
+            <h2 class="card-title">Knowledge Sources & Provenance</h2>
+          </div>
+          <div class="card-body">
+            <!-- Internal Sources -->
+            <div id="internalSourcesSection" class="sources-group">
+              <h3 class="sources-group-title">
+                <span class="source-icon">📄</span> Internal Document Sources
+                <span id="internalCountBadge" class="count-badge">0</span>
+              </h3>
+              <div id="internalSourcesList" class="sources-list"></div>
+            </div>
+
+            <!-- External Web Sources -->
+            <div id="webSourcesSection" class="sources-group">
+              <h3 class="sources-group-title">
+                <span class="source-icon">🌐</span> External Web Sources
+                <span id="webCountBadge" class="count-badge">0</span>
+              </h3>
+              <div id="webSourcesList" class="sources-list"></div>
+            </div>
+          </div>
+        </section>
+
+        <!-- Execution Details (Collapsible) -->
+        <details class="card details-card" open>
+          <summary class="details-summary">
+            <div class="summary-left">
+              <span class="summary-icon">⚙️</span>
+              <span class="card-title">CRAG Execution Trace</span>
+            </div>
+            <span class="summary-tag">Inspection</span>
+          </summary>
+          <div class="card-body details-grid">
+            <div class="trace-item">
+              <span class="trace-label">Action Triggered</span>
+              <span id="traceAction" class="trace-value font-mono">-</span>
+            </div>
+            <div class="trace-item">
+              <span class="trace-label">Max Relevance Score (s_max)</span>
+              <span id="traceMaxScore" class="trace-value font-mono">-</span>
+            </div>
+            <div class="trace-item">
+              <span class="trace-label">Internal Chunks Retrieved</span>
+              <span id="traceRetrievedCount" class="trace-value font-mono">-</span>
+            </div>
+            <div class="trace-item">
+              <span class="trace-label">Web Search Used</span>
+              <span id="traceWebUsed" class="trace-value font-mono">-</span>
+            </div>
+            <div class="trace-item">
+              <span class="trace-label">Rewritten Search Query</span>
+              <span id="traceRewrittenQuery" class="trace-value font-mono">-</span>
+            </div>
+            <div class="trace-item">
+              <span class="trace-label">Refined Internal Strips</span>
+              <span id="traceInternalStrips" class="trace-value font-mono">-</span>
+            </div>
+            <div class="trace-item">
+              <span class="trace-label">Refined External Strips</span>
+              <span id="traceExternalStrips" class="trace-value font-mono">-</span>
+            </div>
+            <div class="trace-item">
+              <span class="trace-label">Final Context Source</span>
+              <span id="traceContextSource" class="trace-value font-mono">-</span>
+            </div>
+          </div>
+        </details>
+      </div>
+    </main>
+
+    <!-- Footer -->
+    <footer class="app-footer">
+      <p>CorrectRAG &bull; Pure-Python Corrective Retrieval-Augmented Generation &bull; arXiv:2401.15884v3</p>
+    </footer>
+  </div>
+
+  <script src="app.js"></script>
+</body>
+</html>

@@ -1,0 +1,321 @@
+/**
+ * CorrectRAG Browser UI Client Logic
+ */
+
+// Configure API base URL (defaults to http://localhost:8000 if opened directly or via simple static server)
+const API_BASE_URL =
+  window.location.hostname === 'localhost' && window.location.port === '8000'
+    ? window.location.origin
+    : 'http://localhost:8000';
+
+// DOM Elements
+const queryForm = document.getElementById('queryForm');
+const queryInput = document.getElementById('queryInput');
+const submitBtn = document.getElementById('submitBtn');
+const btnSpinner = document.getElementById('btnSpinner');
+const btnText = document.getElementById('btnText');
+const apiStatusPill = document.getElementById('apiStatusPill');
+const apiStatusText = document.getElementById('apiStatusText');
+const errorBanner = document.getElementById('errorBanner');
+const errorTitle = document.getElementById('errorTitle');
+const errorMessage = document.getElementById('errorMessage');
+const resultsContainer = document.getElementById('resultsContainer');
+
+// Result Elements
+const actionBadge = document.getElementById('actionBadge');
+const answerText = document.getElementById('answerText');
+const internalSourcesList = document.getElementById('internalSourcesList');
+const webSourcesList = document.getElementById('webSourcesList');
+const internalCountBadge = document.getElementById('internalCountBadge');
+const webCountBadge = document.getElementById('webCountBadge');
+
+// Execution Trace Elements
+const traceAction = document.getElementById('traceAction');
+const traceMaxScore = document.getElementById('traceMaxScore');
+const traceRetrievedCount = document.getElementById('traceRetrievedCount');
+const traceWebUsed = document.getElementById('traceWebUsed');
+const traceRewrittenQuery = document.getElementById('traceRewrittenQuery');
+const traceInternalStrips = document.getElementById('traceInternalStrips');
+const traceExternalStrips = document.getElementById('traceExternalStrips');
+const traceContextSource = document.getElementById('traceContextSource');
+
+/**
+ * Check backend health status on load.
+ */
+async function checkHealth() {
+  try {
+    const res = await fetch(`${API_BASE_URL}/health`, {
+      method: 'GET',
+      headers: { Accept: 'application/json' },
+    });
+    if (res.ok) {
+      apiStatusPill.className = 'status-pill status-connected';
+      apiStatusText.textContent = 'API: Connected';
+    } else {
+      setApiOffline();
+    }
+  } catch {
+    setApiOffline();
+  }
+}
+
+function setApiOffline() {
+  apiStatusPill.className = 'status-pill status-error';
+  apiStatusText.textContent = 'API: Offline';
+}
+
+/**
+ * Helper to escape raw HTML text before rendering.
+ */
+function escapeHtml(text) {
+  if (!text) return '';
+  const div = document.createElement('div');
+  div.textContent = text;
+  return div.innerHTML;
+}
+
+/**
+ * Format markdown-like bold markers (**text**) and paragraph spacing safely.
+ */
+function formatAnswerContent(text) {
+  if (!text) return '';
+  const escaped = escapeHtml(text);
+  // Convert **bold** to <strong>bold</strong>
+  return escaped.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>');
+}
+
+/**
+ * Display structured error banner.
+ */
+function showError(title, message) {
+  errorTitle.textContent = title;
+  errorMessage.textContent = message;
+  errorBanner.classList.remove('hidden');
+}
+
+/**
+ * Clear error banner.
+ */
+function hideError() {
+  errorBanner.classList.add('hidden');
+}
+
+/**
+ * Set UI loading state.
+ */
+function setLoading(loading) {
+  submitBtn.disabled = loading;
+  if (loading) {
+    btnSpinner.classList.remove('hidden');
+    btnText.textContent = 'Processing Query...';
+    hideError();
+  } else {
+    btnSpinner.classList.add('hidden');
+    btnText.textContent = 'Ask CorrectRAG';
+  }
+}
+
+/**
+ * Render retrieved internal sources into DOM.
+ */
+function renderInternalSources(chunks, strips) {
+  internalSourcesList.innerHTML = '';
+  const items = chunks && chunks.length > 0 ? chunks : [];
+  internalCountBadge.textContent = items.length;
+
+  if (items.length === 0) {
+    internalSourcesList.innerHTML = '<p class="empty-sources">No internal document passages used.</p>';
+    return;
+  }
+
+  items.forEach((chunk, index) => {
+    const item = document.createElement('div');
+    item.className = 'source-item';
+
+    const pageStr = chunk.page_number ? `Page ${chunk.page_number}` : 'Internal Doc';
+    const scoreStr =
+      typeof chunk.score === 'number'
+        ? `Score: ${chunk.score > 0 ? '+' : ''}${chunk.score.toFixed(4)}`
+        : '';
+
+    item.innerHTML = `
+      <div class="source-header">
+        <span class="source-title">📄 ${escapeHtml(chunk.source)} (${pageStr})</span>
+        <div class="source-meta">
+          ${scoreStr ? `<span class="score-tag">${scoreStr}</span>` : ''}
+        </div>
+      </div>
+      <p class="source-snippet">${escapeHtml(chunk.text_snippet || '')}</p>
+    `;
+    internalSourcesList.appendChild(item);
+  });
+}
+
+/**
+ * Render external web sources into DOM.
+ */
+function renderWebSources(webResults) {
+  webSourcesList.innerHTML = '';
+  const items = webResults && webResults.length > 0 ? webResults : [];
+  webCountBadge.textContent = items.length;
+
+  if (items.length === 0) {
+    webSourcesList.innerHTML = '<p class="empty-sources">No external web sources queried for this action.</p>';
+    return;
+  }
+
+  items.forEach((result) => {
+    const item = document.createElement('div');
+    item.className = 'source-item';
+
+    const scoreStr =
+      typeof result.score === 'number'
+        ? `Search Score: ${result.score.toFixed(2)}`
+        : '';
+
+    item.innerHTML = `
+      <div class="source-header">
+        <span class="source-title">${escapeHtml(result.title || 'Web Result')}</span>
+        <div class="source-meta">
+          ${scoreStr ? `<span class="score-tag">${scoreStr}</span>` : ''}
+        </div>
+      </div>
+      <div style="margin-bottom: 0.35rem;">
+        <a href="${encodeURI(result.url)}" target="_blank" rel="noopener noreferrer" class="source-link">
+          🔗 ${escapeHtml(result.url)}
+        </a>
+      </div>
+      <p class="source-snippet">${escapeHtml(result.snippet || '')}</p>
+    `;
+    webSourcesList.appendChild(item);
+  });
+}
+
+/**
+ * Render execution trace metadata into DOM.
+ */
+function renderTrace(trace) {
+  if (!trace) return;
+
+  traceAction.textContent = trace.action || '-';
+  traceMaxScore.textContent =
+    typeof trace.max_relevance_score === 'number'
+      ? `${trace.max_relevance_score > 0 ? '+' : ''}${trace.max_relevance_score.toFixed(4)}`
+      : 'None (0 internal chunks)';
+
+  traceRetrievedCount.textContent = `${trace.retrieved_count} chunk(s)`;
+  traceWebUsed.textContent = trace.web_search_used ? 'Yes' : 'No';
+  traceRewrittenQuery.textContent = trace.rewritten_query || 'None (CORRECT branch)';
+  traceInternalStrips.textContent = `${trace.internal_strip_count} strip(s)`;
+  traceExternalStrips.textContent = `${trace.external_strip_count} strip(s)`;
+  traceContextSource.textContent = trace.final_context_source || '-';
+}
+
+/**
+ * Handle form submission.
+ */
+async function handleQuerySubmit(e) {
+  if (e) e.preventDefault();
+
+  const question = queryInput.value.trim();
+  if (!question) {
+    showError('Validation Error', 'Please enter a non-empty question.');
+    queryInput.focus();
+    return;
+  }
+
+  setLoading(true);
+
+  try {
+    const response = await fetch(`${API_BASE_URL}/query`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Accept: 'application/json',
+      },
+      body: JSON.stringify({ question }),
+    });
+
+    if (!response.ok) {
+      if (response.status === 422) {
+        const errData = await response.json().catch(() => ({}));
+        const detailMsg = Array.isArray(errData.detail)
+          ? errData.detail.map((d) => d.msg).join(', ')
+          : 'Invalid request format.';
+        showError('Validation Error (HTTP 422)', detailMsg);
+      } else if (response.status === 500) {
+        const errData = await response.json().catch(() => ({}));
+        showError('Server Error (HTTP 500)', errData.detail || 'An internal server error occurred.');
+      } else {
+        showError(`HTTP Error ${response.status}`, `Request failed with status ${response.statusText}`);
+      }
+      return;
+    }
+
+    const data = await response.json();
+
+    // 1. Update Action Badge
+    const action = data.action || 'CORRECT';
+    actionBadge.textContent = action;
+    actionBadge.className = 'action-badge';
+    if (action === 'CORRECT') {
+      actionBadge.classList.add('action-correct');
+    } else if (action === 'AMBIGUOUS') {
+      actionBadge.classList.add('action-ambiguous');
+    } else {
+      actionBadge.classList.add('action-incorrect');
+    }
+
+    // 2. Render Answer
+    answerText.innerHTML = formatAnswerContent(data.answer);
+
+    // 3. Render Sources
+    renderInternalSources(data.retrieved_chunks, data.refined_strips);
+    renderWebSources(data.web_results);
+
+    // 4. Render Trace
+    renderTrace(data.execution_trace);
+
+    // 5. Reveal Results Container
+    resultsContainer.classList.remove('hidden');
+    resultsContainer.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+  } catch (err) {
+    showError(
+      'Network Error',
+      'Unable to connect to the CorrectRAG API at ' +
+        API_BASE_URL +
+        '. Make sure the FastAPI server is running (uvicorn backend.app.main:app --reload --port 8000).'
+    );
+    setApiOffline();
+  } finally {
+    setLoading(false);
+  }
+}
+
+// Event Listeners
+queryForm.addEventListener('submit', handleQuerySubmit);
+
+// Enter key submits; Shift+Enter creates newline
+queryInput.addEventListener('keydown', (e) => {
+  if (e.key === 'Enter' && !e.shiftKey) {
+    e.preventDefault();
+    handleQuerySubmit();
+  }
+});
+
+// Sample prompt chips
+document.querySelectorAll('.sample-chip').forEach((chip) => {
+  chip.addEventListener('click', () => {
+    const query = chip.getAttribute('data-query');
+    if (query) {
+      queryInput.value = query;
+      queryInput.focus();
+      handleQuerySubmit();
+    }
+  });
+});
+
+// Check health on page load
+document.addEventListener('DOMContentLoaded', () => {
+  checkHealth();
+});
