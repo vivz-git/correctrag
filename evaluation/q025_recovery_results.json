@@ -1,0 +1,69 @@
+{
+  "run_metadata": {
+    "timestamp": "2026-08-21T10:50:02.919462+00:00",
+    "dataset_version": "recovery-1.0",
+    "document_context": null,
+    "total_records": 2,
+    "systems": [
+      "baseline",
+      "crag"
+    ]
+  },
+  "records": [
+    {
+      "question_id": "q025",
+      "category": "INTERNAL_PARTIAL",
+      "question": "What is ChatGPT and how does it relate to RAG systems?",
+      "system": "baseline",
+      "answer": "I cannot answer this question based on the provided context.",
+      "action": null,
+      "retrieved_count": 5,
+      "relevance_scores": [],
+      "citations": [
+        "CRAG.pdf p.2",
+        "CRAG.pdf p.13",
+        "CRAG.pdf p.10",
+        "CRAG.pdf p.12",
+        "CRAG.pdf p.7"
+      ],
+      "latency_seconds": 6.638,
+      "status": "success",
+      "error_message": null,
+      "timestamp": "2026-08-21T10:49:43.906081+00:00",
+      "extra": {}
+    },
+    {
+      "question_id": "q025",
+      "category": "INTERNAL_PARTIAL",
+      "question": "What is ChatGPT and how does it relate to RAG systems?",
+      "system": "crag",
+      "answer": "ChatGPT is a proprietary large‑language model (LLM) such as the one listed alongside LLaMA2‑chat13B. When it is given access to external tools—like the web, databases, or uploaded documents—it first retrieves relevant information and then generates its response, effectively operating as a Retrieval‑Augmented Generation (RAG) system; otherwise it functions as a standard LLM without built‑in retrieval.  \n\nSources: [1] Source: CRAG.pdf | Page: 7, [4] Source: https://www.thinkautomation.com/blog/does-chatgpt-use-retrieval-augmented-generation (web)",
+      "action": "AMBIGUOUS",
+      "retrieved_count": 5,
+      "relevance_scores": [
+        -0.9918784482919378,
+        -0.9907202067216523,
+        -0.9878989178603225,
+        -0.9240432768380313,
+        0.3099300088133774
+      ],
+      "citations": [
+        "CRAG.pdf p.7",
+        "https://www.thinkautomation.com/blog/does-chatgpt-use-retrieval-augmented-generation p.1",
+        "https://datamotion.com/what-is-retrieval-augmented-generation p.1",
+        "https://www.confident-ai.com/blog/what-is-retrieval-augmented-generation p.1"
+      ],
+      "latency_seconds": 19.012,
+      "status": "success",
+      "error_message": null,
+      "timestamp": "2026-08-21T10:50:02.918465+00:00",
+      "extra": {
+        "rewritten_query": "ChatGPT, Retrieval Augmented Generation, relationship",
+        "internal_strip_count": 1,
+        "external_strip_count": 5,
+        "max_relevance_score": 0.3099300088133774,
+        "final_context_source": "combined"
+      }
+    }
+  ]
+}

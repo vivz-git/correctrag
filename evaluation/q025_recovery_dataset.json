@@ -1,0 +1,18 @@
+{
+  "metadata": {
+    "version": "recovery-1.0",
+    "description": "Targeted recovery run for q025 after QueryRewriter robustness fix",
+    "source_dataset": "evaluation/dataset.json",
+    "question_count": 1
+  },
+  "questions": [
+    {
+      "id": "q025",
+      "category": "INTERNAL_PARTIAL",
+      "question": "What is ChatGPT and how does it relate to RAG systems?",
+      "reference_answer": "ChatGPT is a conversational AI assistant developed by OpenAI based on GPT models. RAG systems augment language models like ChatGPT with external retrieved knowledge to reduce hallucinations and improve factual accuracy.",
+      "expected_sources": null,
+      "notes": "The paper references ChatGPT-related systems in context; external sources needed for comprehensive answer."
+    }
+  ]
+}
