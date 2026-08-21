@@ -412,6 +412,42 @@ python -m http.server 3000 --directory frontend
 
 ---
 
+## 🐳 Docker Deployment
+
+CorrectRAG includes a containerized multi-service setup using Docker Compose.
+
+### 1. Configure Environment
+Ensure your API keys are defined in your local environment or `.env` file:
+```bash
+GEMINI_API_KEY="your-gemini-key"
+TAVILY_API_KEY="your-tavily-key"
+```
+
+### 2. Build and Start Services
+```bash
+docker compose up --build
+```
+
+### 3. Service Endpoints
+- **Frontend Browser UI**: [`http://localhost:3000`](http://localhost:3000)
+- **FastAPI Backend API**: [`http://localhost:8000`](http://localhost:8000)
+- **Interactive Swagger Docs**: [`http://localhost:8000/docs`](http://localhost:8000/docs)
+
+### 4. Stop Services
+```bash
+docker compose down
+```
+
+### 5. ChromaDB Persistence Strategy
+The `docker-compose.yml` mounts the host's `./chroma_data` directory to `/app/chroma_data` in the backend container.
+- If pre-indexed chunks exist locally (e.g. from `CRAG.pdf`), the backend loads them instantly without re-embedding.
+- On a fresh machine with an empty or missing `chroma_data/` directory, index `CRAG.pdf` into the persistent `correctrag` collection once by running:
+  ```bash
+  python -c "import sys; sys.path.insert(0, 'backend'); from app.ingestion.pdf_loader import load_pdf; from app.retrieval.embeddings import EmbeddingModel; from app.retrieval.vector_store import ChromaVectorStore; vs = ChromaVectorStore(embedding_model=EmbeddingModel(), collection_name='correctrag', persist_directory='chroma_data'); chunks = load_pdf('CRAG.pdf'); vs.add_chunks(chunks); print(f'Successfully indexed {len(chunks)} chunks into chroma_data/')"
+  ```
+
+---
+
 ## ✅ Test Coverage
 
 | Suite | Focus Area |

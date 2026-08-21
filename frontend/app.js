@@ -2,11 +2,13 @@
  * CorrectRAG Browser UI Client Logic
  */
 
-// Configure API base URL (defaults to http://localhost:8000 if opened directly or via simple static server)
+// Configure API base URL (defaults to http://localhost:8000, configurable via query param or window variable)
 const API_BASE_URL =
-  window.location.hostname === 'localhost' && window.location.port === '8000'
+  window.__CORRECTRAG_API_URL__ ||
+  new URLSearchParams(window.location.search).get('api_url') ||
+  (window.location.hostname === 'localhost' && window.location.port === '8000'
     ? window.location.origin
-    : 'http://localhost:8000';
+    : 'http://localhost:8000');
 
 // DOM Elements
 const queryForm = document.getElementById('queryForm');
