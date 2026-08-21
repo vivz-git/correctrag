@@ -51,7 +51,7 @@ from app.evaluation.action_router import Action, ActionRouter
 from app.evaluation.knowledge_refiner import KnowledgeRefiner, KnowledgeStrip
 from app.external.query_rewriter import QueryRewriter
 from app.external.web_search import WebSearchClient, WebSearchResult
-from app.generation.gemini_client import GeminiClient
+from app.generation.llm_provider import LLMProvider
 
 
 # ──────────────────────────────────────────────────────────────────────────────
@@ -328,7 +328,7 @@ class CRAGPipeline:
         refiner: KnowledgeRefiner,
         query_rewriter: QueryRewriter,
         web_search: WebSearchClient,
-        llm_client: GeminiClient,
+        llm_client: LLMProvider,
         top_k: int = 5,
     ) -> None:
         """Initialize the CRAGPipeline with all required components.

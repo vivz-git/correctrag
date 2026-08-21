@@ -244,12 +244,23 @@ python scripts/demo_rag.py
 
 ---
 
+## 🤖 LLM Providers
+
+- **Primary production/demo provider**: **Gemini 3.6 Flash** (`GeminiClient`)
+- **Temporary alternate provider for evaluation**: **Groq + GPT-OSS 120B** (`GroqClient`)
+
+> **Note**: The alternate provider exists only to work around temporary free-tier quota limits during the pilot and does not replace the primary experiment.
+
+---
+
 ## 🔑 Environment Variables
 
 | Variable | Required | Default | Description |
 |---|---|---|---|
-| `GEMINI_API_KEY` | Yes (for generation) | — | Google AI Studio API key |
+| `GEMINI_API_KEY` | Yes (primary generation) | — | Google AI Studio API key |
 | `GEMINI_MODEL` | No | `gemini-3.6-flash` | Gemini model identifier |
+| `GROQ_API_KEY` | Optional (alternate evaluation) | — | Groq Cloud API key |
+| `GROQ_MODEL` | No | `openai/gpt-oss-120b` | Groq model identifier |
 | `TAVILY_API_KEY` | Yes (for web search) | — | Tavily search API key |
 | `TAVILY_MAX_RESULTS` | No | `5` | Maximum search results |
 

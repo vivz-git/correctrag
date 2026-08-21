@@ -19,7 +19,7 @@ from __future__ import annotations
 from pydantic import BaseModel, Field
 
 from app.retrieval.retriever import RetrievedChunk, VectorRetriever
-from app.generation.gemini_client import GeminiClient
+from app.generation.llm_provider import LLMProvider
 from app.generation.prompt import build_rag_prompt
 
 
@@ -78,7 +78,7 @@ class BaselineRAG:
     def __init__(
         self,
         retriever: VectorRetriever,
-        llm_client: GeminiClient,
+        llm_client: LLMProvider,
         top_k: int = 5,
         skip_llm_on_empty: bool = True,
     ) -> None:

@@ -17,16 +17,9 @@ with a deterministic few-shot prompt to extract at most 3 search terms.
 """
 
 import re
-from typing import Any, Protocol
+from typing import Any
 
-from app.generation.gemini_client import GeminiClient
-
-
-class LLMClientProtocol(Protocol):
-    """Protocol for LLM client supporting generate(str) -> str."""
-
-    def generate(self, prompt: str) -> str:
-        ...
+from app.generation.llm_provider import LLMProvider
 
 
 REWRITE_PROMPT_TEMPLATE = """\
@@ -115,7 +108,7 @@ class QueryRewriter:
 
     def __init__(
         self,
-        llm_client: GeminiClient | LLMClientProtocol,
+        llm_client: LLMProvider,
         max_keywords: int = DEFAULT_MAX_KEYWORDS,
     ) -> None:
         """Initialize the QueryRewriter.
