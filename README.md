@@ -296,6 +296,89 @@ RAGResult
 
 ---
 
+## 🌐 HTTP API
+
+CorrectRAG provides a production-grade FastAPI HTTP service.
+
+### LLM Providers
+- **Primary Production / Demo Provider**: **Google Gemini** (`gemini-3.6-flash`) via `GEMINI_API_KEY`.
+- **Alternate Evaluation Provider**: **Groq** (`openai/gpt-oss-120b`) via `GROQ_API_KEY`.
+
+### Running the Server
+
+```bash
+# From workspace root
+uvicorn backend.app.main:app --reload --port 8000
+```
+
+Interactive OpenAPI documentation is automatically served at:
+- **Swagger UI**: `http://localhost:8000/docs`
+- **OpenAPI JSON**: `http://localhost:8000/openapi.json`
+
+### Endpoints
+
+#### 1. `GET /health`
+```json
+{
+  "status": "ok",
+  "service": "correctrag-api"
+}
+```
+
+#### 2. `POST /query`
+**Request:**
+```bash
+curl -X POST http://localhost:8000/query \
+  -H "Content-Type: application/json" \
+  -d '{"question": "What is CRAG and what are its three actions?"}'
+```
+
+**Response:**
+```json
+{
+  "answer": "Corrective Retrieval Augmented Generation (CRAG) is a framework designed to improve the robustness of retrieval-augmented generation. Its action trigger defines three actions: Correct, Incorrect, and Ambiguous.",
+  "action": "CORRECT",
+  "query": "What is CRAG and what are its three actions?",
+  "rewritten_query": null,
+  "retrieved_chunks": [
+    {
+      "chunk_id": "CRAG.pdf-p5-c0",
+      "source": "CRAG.pdf",
+      "page_number": 5,
+      "score": 0.8576,
+      "text_snippet": "The action trigger defines three actions: Correct, Incorrect, and Ambiguous...",
+      "metadata": {}
+    }
+  ],
+  "relevance_scores": [0.8576],
+  "refined_strips": [
+    {
+      "text": "The action trigger defines three actions: Correct, Incorrect, and Ambiguous.",
+      "source": "CRAG.pdf",
+      "page_number": 5,
+      "parent_chunk_id": "CRAG.pdf-p5-c0",
+      "position": 0,
+      "score": 0.8576,
+      "origin": "internal"
+    }
+  ],
+  "external_strips": [],
+  "web_results": [],
+  "execution_trace": {
+    "retrieved_count": 5,
+    "action": "CORRECT",
+    "max_relevance_score": 0.8576,
+    "web_search_used": false,
+    "rewritten_query": null,
+    "internal_strip_count": 2,
+    "external_strip_count": 0,
+    "final_context_source": "internal"
+  }
+}
+```
+
+---
+
 ## ✅ Test Coverage
 
 | Suite | Focus Area |
@@ -306,5 +389,10 @@ RAGResult
 | `test_relevance_evaluator.py` | Score mapping, input validation, batch processing, model caching |
 | `test_action_router.py` | Threshold validation, boundary logic, multi-score routing, determinism |
 | `test_knowledge_refiner.py` | Strip decomposition, score evaluation, threshold filtering, order recomposition |
-| `test_query_rewriter.py` | Query keyword extraction, prefix & quote stripping, 3-term upper bound |
+| `test_query_rewriter.py` | Query keyword extraction, prefix & quote stripping, 3-term upper bound, fallback |
 | `test_web_search.py` | Tavily search adapter, WebSearchResult model, error wrapping |
+| `test_crag_pipeline.py` | End-to-end orchestration, CORRECT / INCORRECT / AMBIGUOUS branches |
+| `test_evaluation.py` | Metric calculations, dataset integrity, runner mocking |
+| `test_groq_client.py` | Alternate provider Groq client wrapper and error handling |
+| `test_llm_provider.py` | LLMProvider protocol compliance |
+| `test_api.py` | FastAPI HTTP endpoints, request validation, error safety, schema serialization |
