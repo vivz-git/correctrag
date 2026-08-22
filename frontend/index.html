@@ -4,171 +4,185 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>CorrectRAG — Corrective Retrieval Augmented Generation</title>
+  <meta name="description" content="CorrectRAG: A corrective retrieval-augmented generation system with provenance tracking and execution trace.">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="style.css">
+  <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="style.css?v=2">
 </head>
 <body>
   <div class="app-container">
+
     <!-- Header -->
     <header class="app-header">
       <div class="header-brand">
-        <div class="logo-badge">CRAG</div>
+        <span class="logo-mark" aria-hidden="true">CRAG</span>
         <div>
           <h1 class="brand-title">CorrectRAG</h1>
-          <p class="brand-subtitle">Corrective Retrieval Augmented Generation</p>
+          <p class="brand-subtitle">Corrective Retrieval-Augmented Generation</p>
         </div>
       </div>
-      <div class="header-status">
+      <div class="header-status" role="status" aria-live="polite">
         <div id="apiStatusPill" class="status-pill status-checking">
-          <span class="status-dot"></span>
-          <span id="apiStatusText" class="status-label">Checking API...</span>
+          <span class="status-dot" aria-hidden="true"></span>
+          <span id="apiStatusText" class="status-label">Checking API…</span>
         </div>
       </div>
     </header>
 
-    <!-- Main Content Area -->
+    <!-- Main Content -->
     <main class="main-content">
-      <!-- Query Input Card -->
-      <section class="card query-card">
-        <form id="queryForm" class="query-form">
-          <label for="queryInput" class="input-label">Ask a question across the document store and web fallback</label>
+
+      <!-- Query Input -->
+      <section class="query-section" aria-labelledby="queryLabel">
+        <form id="queryForm" class="query-form" novalidate>
+          <label for="queryInput" id="queryLabel" class="input-label">Query the document store</label>
           <div class="textarea-wrapper">
             <textarea
               id="queryInput"
               class="query-textarea"
               placeholder="What is CRAG and what are its three actions?"
-              rows="3"
+              rows="2"
               required
+              aria-describedby="shortcutHint"
             ></textarea>
           </div>
           <div class="query-actions">
-            <div class="shortcut-hint">
-              <kbd>Enter</kbd> to submit &bull; <kbd>Shift + Enter</kbd> for newline
-            </div>
+            <span class="shortcut-hint" id="shortcutHint">
+              <kbd>Enter</kbd> submit &middot; <kbd>Shift+Enter</kbd> newline
+            </span>
             <button type="submit" id="submitBtn" class="btn btn-primary">
-              <span id="btnSpinner" class="spinner hidden"></span>
-              <span id="btnText">Ask CorrectRAG</span>
+              <span id="btnSpinner" class="spinner hidden" aria-hidden="true"></span>
+              <span id="btnText">Run Query</span>
             </button>
           </div>
         </form>
 
-        <!-- Quick Sample Queries -->
-        <div class="sample-queries">
-          <span class="sample-label">Examples:</span>
+        <!-- Example Queries -->
+        <div class="sample-queries" role="group" aria-label="Example queries">
+          <span class="sample-label" aria-hidden="true">Examples</span>
           <button type="button" class="sample-chip" data-query="What is CRAG and what are its three actions?">What is CRAG?</button>
-          <button type="button" class="sample-chip" data-query="What is ChatGPT and how does it relate to RAG systems?">ChatGPT & RAG</button>
-          <button type="button" class="sample-chip" data-query="Who wrote the play Romeo and Juliet?">Romeo & Juliet (Web fallback)</button>
-          <button type="button" class="sample-chip" data-query="What is the role of fine-tuning in adapting pretrained language models?">Fine-tuning in LLMs</button>
+          <button type="button" class="sample-chip" data-query="What is ChatGPT and how does it relate to RAG systems?">ChatGPT &amp; RAG</button>
+          <button type="button" class="sample-chip" data-query="Who wrote the play Romeo and Juliet?">Romeo &amp; Juliet</button>
+          <button type="button" class="sample-chip" data-query="What is the role of fine-tuning in adapting pretrained language models?">Fine-tuning LLMs</button>
         </div>
       </section>
 
       <!-- Error Banner -->
       <div id="errorBanner" class="error-banner hidden" role="alert">
-        <div class="error-icon">⚠️</div>
+        <div class="error-icon" aria-hidden="true">
+          <svg viewBox="0 0 16 16" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.5">
+            <circle cx="8" cy="8" r="7"/>
+            <line x1="8" y1="5" x2="8" y2="8.5"/>
+            <circle cx="8" cy="11" r="0.5" fill="currentColor" stroke="none"/>
+          </svg>
+        </div>
         <div class="error-content">
           <h4 id="errorTitle" class="error-title">Error</h4>
           <p id="errorMessage" class="error-message"></p>
         </div>
       </div>
 
-      <!-- Results Container (hidden until query is answered) -->
-      <div id="resultsContainer" class="results-container hidden">
-        <!-- Answer Card -->
-        <section class="card answer-card">
-          <div class="card-header">
-            <div class="header-left">
-              <h2 class="card-title">Generated Answer</h2>
-            </div>
-            <div class="header-right">
-              <span id="actionBadge" class="action-badge action-correct">CORRECT</span>
-            </div>
+      <!-- Results (hidden until query completes) -->
+      <div id="resultsContainer" class="results-container hidden" aria-busy="false">
+
+        <!-- Answer -->
+        <section class="answer-section" aria-labelledby="answerHeading">
+          <div class="answer-header">
+            <h2 id="answerHeading" class="answer-heading">Answer</h2>
+            <span id="actionBadge" class="action-badge action-correct">CORRECT</span>
           </div>
-          <div class="card-body">
-            <div id="answerText" class="answer-content"></div>
+          <div id="answerText" class="answer-content"></div>
+        </section>
+
+        <!-- Sources -->
+        <section class="sources-section" aria-labelledby="sourcesHeading">
+          <h2 id="sourcesHeading" class="sr-only">Knowledge Sources</h2>
+
+          <!-- Internal Sources -->
+          <div id="internalSourcesSection" class="sources-group">
+            <h3 class="sources-group-title">
+              <span class="source-type-icon" aria-hidden="true">
+                <svg viewBox="0 0 16 16"><path d="M4 1h6l4 4v10H2V1h2z"/><path d="M10 1v4h4"/></svg>
+              </span>
+              Internal Documents
+              <span id="internalCountBadge" class="count-badge">0</span>
+            </h3>
+            <div id="internalSourcesList" class="sources-list"></div>
+          </div>
+
+          <!-- Web Sources -->
+          <div id="webSourcesSection" class="sources-group">
+            <h3 class="sources-group-title">
+              <span class="source-type-icon" aria-hidden="true">
+                <svg viewBox="0 0 16 16"><circle cx="8" cy="8" r="7"/><path d="M1 8h14"/><path d="M8 1a11 11 0 010 14"/><path d="M8 1a11 11 0 000 14"/></svg>
+              </span>
+              Web Sources
+              <span id="webCountBadge" class="count-badge">0</span>
+            </h3>
+            <div id="webSourcesList" class="sources-list"></div>
           </div>
         </section>
 
-        <!-- Sources Section -->
-        <section class="card sources-card">
-          <div class="card-header">
-            <h2 class="card-title">Knowledge Sources & Provenance</h2>
-          </div>
-          <div class="card-body">
-            <!-- Internal Sources -->
-            <div id="internalSourcesSection" class="sources-group">
-              <h3 class="sources-group-title">
-                <span class="source-icon">📄</span> Internal Document Sources
-                <span id="internalCountBadge" class="count-badge">0</span>
-              </h3>
-              <div id="internalSourcesList" class="sources-list"></div>
-            </div>
-
-            <!-- External Web Sources -->
-            <div id="webSourcesSection" class="sources-group">
-              <h3 class="sources-group-title">
-                <span class="source-icon">🌐</span> External Web Sources
-                <span id="webCountBadge" class="count-badge">0</span>
-              </h3>
-              <div id="webSourcesList" class="sources-list"></div>
-            </div>
-          </div>
-        </section>
-
-        <!-- Execution Details (Collapsible) -->
-        <details class="card details-card" open>
-          <summary class="details-summary">
+        <!-- Execution Trace -->
+        <details class="trace-details">
+          <summary class="trace-summary">
             <div class="summary-left">
-              <span class="summary-icon">⚙️</span>
-              <span class="card-title">CRAG Execution Trace</span>
+              <span class="summary-icon" aria-hidden="true">
+                <svg viewBox="0 0 16 16"><path d="M2 2h4v4H2zM10 2h4v4h-4zM2 10h4v4H2z"/><path d="M10 10h4v4h-4" stroke-dasharray="2 1"/></svg>
+              </span>
+              <span class="trace-title">Execution Trace</span>
             </div>
-            <span class="summary-tag">Inspection</span>
+            <svg class="trace-chevron" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true"><path d="M4 6l4 4 4-4"/></svg>
           </summary>
-          <div class="card-body details-grid">
-            <div class="trace-item">
-              <span class="trace-label">Action Triggered</span>
-              <span id="traceAction" class="trace-value font-mono">-</span>
-            </div>
-            <div class="trace-item">
-              <span class="trace-label">Max Relevance Score (s_max)</span>
-              <span id="traceMaxScore" class="trace-value font-mono">-</span>
-            </div>
-            <div class="trace-item">
-              <span class="trace-label">Internal Chunks Retrieved</span>
-              <span id="traceRetrievedCount" class="trace-value font-mono">-</span>
-            </div>
-            <div class="trace-item">
-              <span class="trace-label">Web Search Used</span>
-              <span id="traceWebUsed" class="trace-value font-mono">-</span>
-            </div>
-            <div class="trace-item">
-              <span class="trace-label">Rewritten Search Query</span>
-              <span id="traceRewrittenQuery" class="trace-value font-mono">-</span>
-            </div>
-            <div class="trace-item">
-              <span class="trace-label">Refined Internal Strips</span>
-              <span id="traceInternalStrips" class="trace-value font-mono">-</span>
-            </div>
-            <div class="trace-item">
-              <span class="trace-label">Refined External Strips</span>
-              <span id="traceExternalStrips" class="trace-value font-mono">-</span>
-            </div>
-            <div class="trace-item">
-              <span class="trace-label">Final Context Source</span>
-              <span id="traceContextSource" class="trace-value font-mono">-</span>
+          <div class="trace-body">
+            <div class="trace-dl" role="list" aria-label="Execution trace details">
+              <div class="trace-item" role="listitem">
+                <span class="trace-label">Action</span>
+                <span id="traceAction" class="trace-value">–</span>
+              </div>
+              <div class="trace-item" role="listitem">
+                <span class="trace-label">s_max</span>
+                <span id="traceMaxScore" class="trace-value">–</span>
+              </div>
+              <div class="trace-item" role="listitem">
+                <span class="trace-label">Retrieved Chunks</span>
+                <span id="traceRetrievedCount" class="trace-value">–</span>
+              </div>
+              <div class="trace-item" role="listitem">
+                <span class="trace-label">Web Search</span>
+                <span id="traceWebUsed" class="trace-value">–</span>
+              </div>
+              <div class="trace-item" role="listitem">
+                <span class="trace-label">Rewritten Query</span>
+                <span id="traceRewrittenQuery" class="trace-value">–</span>
+              </div>
+              <div class="trace-item" role="listitem">
+                <span class="trace-label">Internal Strips</span>
+                <span id="traceInternalStrips" class="trace-value">–</span>
+              </div>
+              <div class="trace-item" role="listitem">
+                <span class="trace-label">External Strips</span>
+                <span id="traceExternalStrips" class="trace-value">–</span>
+              </div>
+              <div class="trace-item" role="listitem">
+                <span class="trace-label">Context Source</span>
+                <span id="traceContextSource" class="trace-value">–</span>
+              </div>
             </div>
           </div>
         </details>
+
       </div>
     </main>
 
     <!-- Footer -->
     <footer class="app-footer">
-      <p>CorrectRAG &bull; Pure-Python Corrective Retrieval-Augmented Generation &bull; arXiv:2401.15884v3</p>
+      <p>CorrectRAG &middot; Corrective Retrieval-Augmented Generation &middot; arXiv:2401.15884v3</p>
     </footer>
+
   </div>
 
-  <script src="app.js"></script>
+  <script src="app.js?v=2"></script>
 </body>
 </html>

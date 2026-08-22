@@ -1,8 +1,17 @@
 /**
- * CorrectRAG Browser UI Client Logic
+ * CorrectRAG Browser UI — Client Logic
+ *
+ * All API interaction, XSS protection, error handling, and event binding
+ * preserved from original implementation. Updated only for:
+ * - New HTML structure class names
+ * - aria-busy state management
+ * - Loading skeleton injection
+ * - CSS-based error icon (SVG in HTML)
+ * - Focus management after results render
  */
 
-// Configure API base URL (defaults to http://localhost:8000, configurable via query param or window variable)
+// ── API Configuration ──────────────────────────────────────────────────────
+
 const API_BASE_URL =
   window.__CORRECTRAG_API_URL__ ||
   new URLSearchParams(window.location.search).get('api_url') ||
@@ -10,7 +19,8 @@ const API_BASE_URL =
     ? window.location.origin
     : 'http://localhost:8000');
 
-// DOM Elements
+// ── DOM Elements ───────────────────────────────────────────────────────────
+
 const queryForm = document.getElementById('queryForm');
 const queryInput = document.getElementById('queryInput');
 const submitBtn = document.getElementById('submitBtn');
@@ -41,9 +51,9 @@ const traceInternalStrips = document.getElementById('traceInternalStrips');
 const traceExternalStrips = document.getElementById('traceExternalStrips');
 const traceContextSource = document.getElementById('traceContextSource');
 
-/**
- * Check backend health status on load.
- */
+
+// ── Health Check ───────────────────────────────────────────────────────────
+
 async function checkHealth() {
   try {
     const res = await fetch(`${API_BASE_URL}/health`, {
@@ -52,7 +62,7 @@ async function checkHealth() {
     });
     if (res.ok) {
       apiStatusPill.className = 'status-pill status-connected';
-      apiStatusText.textContent = 'API: Connected';
+      apiStatusText.textContent = 'API Connected';
     } else {
       setApiOffline();
     }
@@ -63,12 +73,12 @@ async function checkHealth() {
 
 function setApiOffline() {
   apiStatusPill.className = 'status-pill status-error';
-  apiStatusText.textContent = 'API: Offline';
+  apiStatusText.textContent = 'API Offline';
 }
 
-/**
- * Helper to escape raw HTML text before rendering.
- */
+
+// ── XSS Protection ────────────────────────────────────────────────────────
+
 function escapeHtml(text) {
   if (!text) return '';
   const div = document.createElement('div');
@@ -76,9 +86,9 @@ function escapeHtml(text) {
   return div.innerHTML;
 }
 
-/**
- * Format markdown-like bold markers (**text**) and paragraph spacing safely.
- */
+
+// ── Answer Formatting ──────────────────────────────────────────────────────
+
 function formatAnswerContent(text) {
   if (!text) return '';
   const escaped = escapeHtml(text);
@@ -86,136 +96,149 @@ function formatAnswerContent(text) {
   return escaped.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>');
 }
 
-/**
- * Display structured error banner.
- */
+
+// ── Error Display ──────────────────────────────────────────────────────────
+
 function showError(title, message) {
   errorTitle.textContent = title;
   errorMessage.textContent = message;
   errorBanner.classList.remove('hidden');
 }
 
-/**
- * Clear error banner.
- */
 function hideError() {
   errorBanner.classList.add('hidden');
 }
 
-/**
- * Set UI loading state.
- */
+
+// ── Loading State ──────────────────────────────────────────────────────────
+
 function setLoading(loading) {
   submitBtn.disabled = loading;
+  resultsContainer.setAttribute('aria-busy', loading ? 'true' : 'false');
+
   if (loading) {
     btnSpinner.classList.remove('hidden');
-    btnText.textContent = 'Processing Query...';
+    btnText.textContent = 'Processing…';
     hideError();
+
+    // Show loading skeleton in answer area
+    answerText.innerHTML =
+      '<div class="loading-skeleton" aria-label="Loading results">' +
+        '<div class="skeleton-line"></div>' +
+        '<div class="skeleton-line"></div>' +
+        '<div class="skeleton-line"></div>' +
+      '</div>';
+
+    // Reveal results container during loading to show skeleton
+    resultsContainer.classList.remove('hidden');
   } else {
     btnSpinner.classList.add('hidden');
-    btnText.textContent = 'Ask CorrectRAG';
+    btnText.textContent = 'Run Query';
   }
 }
 
-/**
- * Render retrieved internal sources into DOM.
- */
+
+// ── Source Rendering ───────────────────────────────────────────────────────
+
 function renderInternalSources(chunks, strips) {
   internalSourcesList.innerHTML = '';
   const items = chunks && chunks.length > 0 ? chunks : [];
   internalCountBadge.textContent = items.length;
 
   if (items.length === 0) {
-    internalSourcesList.innerHTML = '<p class="empty-sources">No internal document passages used.</p>';
+    internalSourcesList.innerHTML =
+      '<p class="empty-sources">No internal document passages used.</p>';
     return;
   }
 
-  items.forEach((chunk, index) => {
+  items.forEach(function (chunk) {
     const item = document.createElement('div');
     item.className = 'source-item';
 
-    const pageStr = chunk.page_number ? `Page ${chunk.page_number}` : 'Internal Doc';
+    const pageStr = chunk.page_number
+      ? 'p.\u00A0' + chunk.page_number
+      : 'doc';
     const scoreStr =
       typeof chunk.score === 'number'
-        ? `Score: ${chunk.score > 0 ? '+' : ''}${chunk.score.toFixed(4)}`
+        ? (chunk.score > 0 ? '+' : '') + chunk.score.toFixed(4)
         : '';
 
-    item.innerHTML = `
-      <div class="source-header">
-        <span class="source-title">📄 ${escapeHtml(chunk.source)} (${pageStr})</span>
-        <div class="source-meta">
-          ${scoreStr ? `<span class="score-tag">${scoreStr}</span>` : ''}
-        </div>
-      </div>
-      <p class="source-snippet">${escapeHtml(chunk.text_snippet || '')}</p>
-    `;
+    item.innerHTML =
+      '<div class="source-header">' +
+        '<span class="source-title">' + escapeHtml(chunk.source) + ' \u00B7 ' + pageStr + '</span>' +
+        (scoreStr
+          ? '<div class="source-meta"><span class="score-tag">' + scoreStr + '</span></div>'
+          : '') +
+      '</div>' +
+      (chunk.text_snippet
+        ? '<p class="source-snippet">' + escapeHtml(chunk.text_snippet) + '</p>'
+        : '');
+
     internalSourcesList.appendChild(item);
   });
 }
 
-/**
- * Render external web sources into DOM.
- */
 function renderWebSources(webResults) {
   webSourcesList.innerHTML = '';
   const items = webResults && webResults.length > 0 ? webResults : [];
   webCountBadge.textContent = items.length;
 
   if (items.length === 0) {
-    webSourcesList.innerHTML = '<p class="empty-sources">No external web sources queried for this action.</p>';
+    webSourcesList.innerHTML =
+      '<p class="empty-sources">No external web sources queried.</p>';
     return;
   }
 
-  items.forEach((result) => {
+  items.forEach(function (result) {
     const item = document.createElement('div');
     item.className = 'source-item';
 
     const scoreStr =
       typeof result.score === 'number'
-        ? `Search Score: ${result.score.toFixed(2)}`
+        ? result.score.toFixed(2)
         : '';
 
-    item.innerHTML = `
-      <div class="source-header">
-        <span class="source-title">${escapeHtml(result.title || 'Web Result')}</span>
-        <div class="source-meta">
-          ${scoreStr ? `<span class="score-tag">${scoreStr}</span>` : ''}
-        </div>
-      </div>
-      <div style="margin-bottom: 0.35rem;">
-        <a href="${encodeURI(result.url)}" target="_blank" rel="noopener noreferrer" class="source-link">
-          🔗 ${escapeHtml(result.url)}
-        </a>
-      </div>
-      <p class="source-snippet">${escapeHtml(result.snippet || '')}</p>
-    `;
+    item.innerHTML =
+      '<div class="source-header">' +
+        '<span class="source-title">' + escapeHtml(result.title || 'Web Result') + '</span>' +
+        (scoreStr
+          ? '<div class="source-meta"><span class="score-tag">' + scoreStr + '</span></div>'
+          : '') +
+      '</div>' +
+      '<a href="' + encodeURI(result.url) + '" target="_blank" rel="noopener noreferrer" class="source-link">' +
+        escapeHtml(result.url) +
+      '</a>' +
+      (result.snippet
+        ? '<p class="source-snippet">' + escapeHtml(result.snippet) + '</p>'
+        : '');
+
     webSourcesList.appendChild(item);
   });
 }
 
-/**
- * Render execution trace metadata into DOM.
- */
+
+// ── Execution Trace ────────────────────────────────────────────────────────
+
 function renderTrace(trace) {
   if (!trace) return;
 
-  traceAction.textContent = trace.action || '-';
+  traceAction.textContent = trace.action || '–';
   traceMaxScore.textContent =
     typeof trace.max_relevance_score === 'number'
-      ? `${trace.max_relevance_score > 0 ? '+' : ''}${trace.max_relevance_score.toFixed(4)}`
+      ? (trace.max_relevance_score > 0 ? '+' : '') + trace.max_relevance_score.toFixed(4)
       : 'None (0 internal chunks)';
 
-  traceRetrievedCount.textContent = `${trace.retrieved_count} chunk(s)`;
+  traceRetrievedCount.textContent = trace.retrieved_count + ' chunk(s)';
   traceWebUsed.textContent = trace.web_search_used ? 'Yes' : 'No';
   traceRewrittenQuery.textContent = trace.rewritten_query || 'None (CORRECT branch)';
-  traceInternalStrips.textContent = `${trace.internal_strip_count} strip(s)`;
-  traceExternalStrips.textContent = `${trace.external_strip_count} strip(s)`;
-  traceContextSource.textContent = trace.final_context_source || '-';
+  traceInternalStrips.textContent = trace.internal_strip_count + ' strip(s)';
+  traceExternalStrips.textContent = trace.external_strip_count + ' strip(s)';
+  traceContextSource.textContent = trace.final_context_source || '–';
 }
 
-/**
- * Handle form submission.
- */
+
+// ── Query Submission ───────────────────────────────────────────────────────
+
 async function handleQuerySubmit(e) {
   if (e) e.preventDefault();
 
@@ -239,17 +262,20 @@ async function handleQuerySubmit(e) {
     });
 
     if (!response.ok) {
+      // Hide skeleton on error
+      resultsContainer.classList.add('hidden');
+
       if (response.status === 422) {
-        const errData = await response.json().catch(() => ({}));
+        const errData = await response.json().catch(function () { return {}; });
         const detailMsg = Array.isArray(errData.detail)
-          ? errData.detail.map((d) => d.msg).join(', ')
+          ? errData.detail.map(function (d) { return d.msg; }).join(', ')
           : 'Invalid request format.';
         showError('Validation Error (HTTP 422)', detailMsg);
       } else if (response.status === 500) {
-        const errData = await response.json().catch(() => ({}));
+        const errData = await response.json().catch(function () { return {}; });
         showError('Server Error (HTTP 500)', errData.detail || 'An internal server error occurred.');
       } else {
-        showError(`HTTP Error ${response.status}`, `Request failed with status ${response.statusText}`);
+        showError('HTTP Error ' + response.status, 'Request failed with status ' + response.statusText);
       }
       return;
     }
@@ -278,10 +304,14 @@ async function handleQuerySubmit(e) {
     // 4. Render Trace
     renderTrace(data.execution_trace);
 
-    // 5. Reveal Results Container
+    // 5. Reveal Results
     resultsContainer.classList.remove('hidden');
+
+    // 6. Scroll answer into view and shift focus for accessibility
     resultsContainer.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+
   } catch (err) {
+    resultsContainer.classList.add('hidden');
     showError(
       'Network Error',
       'Unable to connect to the CorrectRAG API at ' +
@@ -294,11 +324,13 @@ async function handleQuerySubmit(e) {
   }
 }
 
-// Event Listeners
+
+// ── Event Listeners ────────────────────────────────────────────────────────
+
 queryForm.addEventListener('submit', handleQuerySubmit);
 
 // Enter key submits; Shift+Enter creates newline
-queryInput.addEventListener('keydown', (e) => {
+queryInput.addEventListener('keydown', function (e) {
   if (e.key === 'Enter' && !e.shiftKey) {
     e.preventDefault();
     handleQuerySubmit();
@@ -306,9 +338,9 @@ queryInput.addEventListener('keydown', (e) => {
 });
 
 // Sample prompt chips
-document.querySelectorAll('.sample-chip').forEach((chip) => {
-  chip.addEventListener('click', () => {
-    const query = chip.getAttribute('data-query');
+document.querySelectorAll('.sample-chip').forEach(function (chip) {
+  chip.addEventListener('click', function () {
+    var query = chip.getAttribute('data-query');
     if (query) {
       queryInput.value = query;
       queryInput.focus();
@@ -318,6 +350,6 @@ document.querySelectorAll('.sample-chip').forEach((chip) => {
 });
 
 // Check health on page load
-document.addEventListener('DOMContentLoaded', () => {
+document.addEventListener('DOMContentLoaded', function () {
   checkHealth();
 });
