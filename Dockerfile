@@ -25,7 +25,13 @@ RUN pip install --no-cache-dir --upgrade pip && \
 
 # Copy application source code
 COPY backend/ /app/backend/
-COPY CRAG.pdf /app/CRAG.pdf
+COPY README.m[d] CRAG.pd[f] /tmp/
+RUN if [ -f /tmp/CRAG.pdf ]; then \
+        mv /tmp/CRAG.pdf /app/CRAG.pdf; \
+    else \
+        echo "CRAG.pdf not found in build context. Downloading from arXiv..."; \
+        curl -L -f -o /app/CRAG.pdf https://arxiv.org/pdf/2401.15884.pdf || exit 1; \
+    fi
 
 # Expose FastAPI HTTP port
 EXPOSE 8000
