@@ -2,6 +2,7 @@
 Main FastAPI Application Entrypoint for CorrectRAG.
 """
 
+import os
 import sys
 from pathlib import Path
 
@@ -10,10 +11,35 @@ backend_dir = Path(__file__).resolve().parent.parent
 if str(backend_dir) not in sys.path:
     sys.path.insert(0, str(backend_dir))
 
+from contextlib import asynccontextmanager
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from app.api.routes import router as api_router
+
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    """Startup and shutdown events."""
+    from app.api.routes import get_crag_pipeline
+    from app.ingestion.pdf_loader import load_pdf
+
+    # Initialize pipeline which configures the vector store
+    pipeline = get_crag_pipeline()
+    vector_store = pipeline.retriever.vector_store
+
+    if vector_store.count() == 0:
+        print("ChromaDB is empty. Indexing CRAG.pdf...")
+        root_dir = Path(__file__).resolve().parent.parent.parent
+        pdf_path = root_dir / "CRAG.pdf"
+        if pdf_path.exists():
+            chunks = load_pdf(pdf_path, chunk_size=500, chunk_overlap=100)
+            vector_store.add_chunks(chunks)
+            print(f"Indexed {len(chunks)} chunks into ChromaDB.")
+        else:
+            print(f"WARNING: {pdf_path} not found. Knowledge base remains empty.")
+    
+    yield
 
 
 def create_app() -> FastAPI:
@@ -24,12 +50,19 @@ def create_app() -> FastAPI:
         version="1.0.0",
         docs_url="/docs",
         openapi_url="/openapi.json",
+        lifespan=lifespan,
     )
 
     # CORS configuration for browser frontends
+    cors_origins_env = os.environ.get("CORS_ALLOW_ORIGINS", "")
+    if cors_origins_env:
+        allow_origins = [origin.strip() for origin in cors_origins_env.split(",")]
+    else:
+        allow_origins = ["*"]
+
     application.add_middleware(
         CORSMiddleware,
-        allow_origins=["*"],
+        allow_origins=allow_origins,
         allow_credentials=False,
         allow_methods=["*"],
         allow_headers=["*"],
