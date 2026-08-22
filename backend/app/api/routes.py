@@ -22,7 +22,7 @@ from app.evaluation.knowledge_refiner import KnowledgeRefiner
 from app.evaluation.relevance_evaluator import RelevanceEvaluator
 from app.external.query_rewriter import QueryRewriter
 from app.external.web_search import WebSearchClient
-from app.generation.gemini_client import GeminiClient
+from app.generation import GeminiClient, GroqClient, LLMProvider
 from app.pipeline.crag_pipeline import CRAGPipeline, CRAGResult
 from app.retrieval.embeddings import EmbeddingModel
 from app.retrieval.retriever import VectorRetriever
@@ -31,18 +31,41 @@ from app.retrieval.vector_store import ChromaVectorStore
 router = APIRouter()
 
 
+def _get_llm_client() -> LLMProvider:
+    """Resolve and construct the configured LLMProvider.
+
+    Supported LLM_PROVIDER values:
+        - "groq" (default): GroqClient with GROQ_API_KEY / GROQ_MODEL
+        - "gemini": GeminiClient with GEMINI_API_KEY / GEMINI_MODEL
+    """
+    provider = os.environ.get("LLM_PROVIDER", "groq").lower().strip()
+
+    if provider == "groq":
+        groq_key = os.environ.get("GROQ_API_KEY")
+        if not groq_key:
+            raise ValueError("GROQ_API_KEY environment variable is missing.")
+        groq_model = os.environ.get("GROQ_MODEL", "openai/gpt-oss-120b")
+        return GroqClient(api_key=groq_key, model=groq_model)
+
+    if provider == "gemini":
+        gemini_key = os.environ.get("GEMINI_API_KEY")
+        if not gemini_key:
+            raise ValueError("GEMINI_API_KEY environment variable is missing.")
+        gemini_model = os.environ.get("GEMINI_MODEL", "gemini-3.6-flash")
+        return GeminiClient(api_key=gemini_key, model=gemini_model)
+
+    raise ValueError(
+        f"Unsupported LLM_PROVIDER '{provider}'. Supported providers are: 'groq', 'gemini'."
+    )
+
+
 @lru_cache()
 def get_crag_pipeline() -> CRAGPipeline:
     """Dependency factory to construct and cache the production CRAGPipeline.
 
-    Uses Gemini (GEMINI_API_KEY / GEMINI_MODEL) as the primary LLM provider
+    Uses LLM_PROVIDER (defaults to Groq; supports Gemini) for generation
     and Tavily (TAVILY_API_KEY / TAVILY_MAX_RESULTS) for web search.
     """
-    gemini_key = os.environ.get("GEMINI_API_KEY")
-    if not gemini_key:
-        raise ValueError("GEMINI_API_KEY environment variable is missing.")
-    gemini_model = os.environ.get("GEMINI_MODEL", "gemini-3.6-flash")
-
     tavily_key = os.environ.get("TAVILY_API_KEY")
     if not tavily_key:
         raise ValueError("TAVILY_API_KEY environment variable is missing.")
@@ -55,7 +78,7 @@ def get_crag_pipeline() -> CRAGPipeline:
         root = Path(__file__).resolve().parent.parent.parent.parent
         chroma_dir = str(root / "chroma_data")
 
-    llm_client = GeminiClient(api_key=gemini_key, model=gemini_model)
+    llm_client = _get_llm_client()
     embedding_model = EmbeddingModel()
     vector_store = ChromaVectorStore(
         embedding_model=embedding_model,

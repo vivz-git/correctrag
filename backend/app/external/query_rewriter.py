@@ -134,11 +134,18 @@ class QueryRewriter:
     def rewrite(self, query: str) -> str:
         """Rewrite a user query into at most 3 comma-separated search terms.
 
+        If the LLM returns an empty, whitespace-only, or otherwise unusable
+        response, the rewriter gracefully falls back to the original cleaned
+        query string (query.strip()) rather than crashing the pipeline.
+
+        Real provider/API exceptions from llm_client.generate() are NOT caught
+        here and will propagate normally.
+
         Args:
             query: The original question string.
 
         Returns:
-            Concise, comma-separated web search query.
+            Concise, comma-separated web search query, or clean_query as fallback.
 
         Raises:
             TypeError:  If query is not a string.
@@ -156,4 +163,7 @@ class QueryRewriter:
         )
 
         raw_response = self.llm_client.generate(prompt)
-        return sanitize_rewritten_query(raw_response, max_keywords=self.max_keywords)
+        try:
+            return sanitize_rewritten_query(raw_response, max_keywords=self.max_keywords)
+        except ValueError:
+            return clean_query

@@ -186,6 +186,11 @@ After the fix, `q025` completed with 100% success in `groq_final_results.json`, 
 1. **Sample Size**: 30 questions provide structural validation of pipeline branches, not statistical significance.
 2. **Metric Constraint**: Bag-of-words keyword F1 measures lexical overlap, not semantic equivalence or factual nuance.
 3. **Strip Pruning Tradeoff**: Strict strip filtering reduces hallucination risk on noisy passages, but can occasionally prune peripheral context on dense domain-specific questions.
+4. **Dense Retrieval Depth & Evaluator Routing Interaction (Empirically Verified)**:
+   - On compound multi-intent queries like `"What does CRAG stand for and what are its three actions?"`, full-corpus analysis of the 168 chunks in `chroma_data/` showed that ground-truth definition chunks were ranked at dense positions #40 (`CRAG_p5_c004`), #45 (`CRAG_p2_c003`), #73 (`CRAG_p3_c010`), and #75 (`CRAG_p1_c003`) by `all-MiniLM-L6-v2`.
+   - Offline experiments across $k \in \{5, 8, 10, 15\}$ verified that expanding top-$k$ depth did not bring definition chunks into the candidate set, while increasing candidate count amplified zero-shot CrossEncoder false positives ($s_{\max}$ reached `+0.9940` at $k=15$ on a non-definition summary chunk).
+   - This false-positive $s_{\max} > \alpha$ triggers `CORRECT` routing and suppresses external web search fallback, resulting in an unanswerable refusal from the strictly grounded LLM.
+   - This is an adaptation-specific engineering finding associated with frozen dense bi-encoders and zero-shot cross-encoders, not a finding reproduced from the original CRAG paper benchmark. Promising future iterations include hybrid retrieval (BM25 + dense), evaluator fine-tuning, or retrieval sufficiency verification.
 
 ---
 

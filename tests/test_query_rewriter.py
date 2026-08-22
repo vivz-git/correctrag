@@ -170,12 +170,36 @@ class TestQueryRewriterExecution:
         with pytest.raises(TypeError, match="query must be a string"):
             rewriter.rewrite(42)  # type: ignore
 
-    def test_malformed_empty_llm_response_raises_value_error(self):
+    def test_empty_llm_response_falls_back_to_original_query(self):
         mock_client = MagicMock()
         mock_client.generate.return_value = ""
         rewriter = QueryRewriter(llm_client=mock_client)
 
-        with pytest.raises(ValueError, match="LLM returned an empty response"):
+        result = rewriter.rewrite("What is ChatGPT and how does it relate to RAG systems?")
+        assert result == "What is ChatGPT and how does it relate to RAG systems?"
+
+    def test_whitespace_only_llm_response_falls_back_to_original_query(self):
+        mock_client = MagicMock()
+        mock_client.generate.return_value = "   \n\t  "
+        rewriter = QueryRewriter(llm_client=mock_client)
+
+        result = rewriter.rewrite("What is the capital of France?")
+        assert result == "What is the capital of France?"
+
+    def test_unusable_delimiters_llm_response_falls_back_to_original_query(self):
+        mock_client = MagicMock()
+        mock_client.generate.return_value = ", , , \"\" "
+        rewriter = QueryRewriter(llm_client=mock_client)
+
+        result = rewriter.rewrite("How does BM25 work?")
+        assert result == "How does BM25 work?"
+
+    def test_provider_exception_is_not_swallowed(self):
+        mock_client = MagicMock()
+        mock_client.generate.side_effect = RuntimeError("Upstream provider connection timeout")
+        rewriter = QueryRewriter(llm_client=mock_client)
+
+        with pytest.raises(RuntimeError, match="Upstream provider connection timeout"):
             rewriter.rewrite("Any valid question?")
 
     def test_deterministic_behavior_across_calls(self):

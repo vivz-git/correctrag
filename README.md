@@ -301,8 +301,8 @@ RAGResult
 CorrectRAG provides a production-grade FastAPI HTTP service.
 
 ### LLM Providers
-- **Primary Production / Demo Provider**: **Google Gemini** (`gemini-3.6-flash`) via `GEMINI_API_KEY`.
-- **Alternate Evaluation Provider**: **Groq** (`openai/gpt-oss-120b`) via `GROQ_API_KEY`.
+- **Default Production / Demo Provider**: **Groq** (`openai/gpt-oss-120b`) via `GROQ_API_KEY` (`LLM_PROVIDER=groq`).
+- **Alternate Provider**: **Google Gemini** (`gemini-3.6-flash`) via `GEMINI_API_KEY` (`LLM_PROVIDER=gemini`).
 
 ### Running the Server
 
@@ -376,6 +376,32 @@ curl -X POST http://localhost:8000/query \
   }
 }
 ```
+
+---
+
+## 🔍 Known Retrieval Limitation & Architectural Tradeoffs
+
+An offline empirical analysis of compound queries (e.g., `"What does CRAG stand for and what are its three actions?"`) revealed an important architectural interaction in our engineering adaptation:
+
+### 1. Empirical Observation
+- **Query**: `"What does CRAG stand for and what are its three actions?"`
+- **Dense Retriever**: `all-MiniLM-L6-v2` with cosine distance via ChromaDB.
+- **Production Baseline ($k = 5$)**: Top-5 dense retrieval pulled peripheral passages mentioning general CRAG adaptability and benchmark datasets, but missed the definition chunks.
+- **Full Corpus Ranks of Ground-Truth Chunks (168 chunks)**:
+  - `CRAG_p5_c004` (action definitions: Correct, Incorrect, Ambiguous): **Rank 40** (cosine: `0.1541`)
+  - `CRAG_p2_c003` (acronym definition): **Rank 45** (cosine: `0.1373`)
+  - `CRAG_p3_c010` (confidence degrees & action trigger): **Rank 73** (cosine: `0.0807`)
+  - `CRAG_p1_c003` (acronym definition): **Rank 75** (cosine: `0.0784`)
+
+### 2. Retrieval Depth Tradeoff ($k \in \{5, 8, 10, 15\}$)
+- Offline evaluation across $k \in \{5, 8, 10, 15\}$ demonstrated that increasing $k$ up to 15 did **not** retrieve the ground-truth definition chunks (which remain ranked at #40, #45, #73, #75).
+- Increasing $k$ expanded the candidate pool for the zero-shot CrossEncoder (`ms-marco-MiniLM-L-6-v2`), which produced false-positive high relevance scores on broad summary text ($s_{\max}$ reached `+0.9940` on a non-definition chunk at $k=15$).
+- Consequently, the `ActionRouter` routed to `CORRECT` ($\alpha = 0.5$), which suppressed external web fallback even though the refined internal strips lacked the required answer facts, leading the grounded LLM to faithfully return an unanswerable refusal.
+
+### 3. Engineering Context & Distinctions
+- **Adaptation-Specific Finding**: This behavior is an engineering evaluation finding stemming from using a frozen generic dense bi-encoder coupled with a zero-shot CrossEncoder on compound multi-intent questions.
+- **No Equivalence Claim to Paper**: This is not evidence that the original CRAG paper experienced this failure mode, as the paper employed a fine-tuned T5-large evaluator and hybrid BM25 retrieval.
+- **Future Improvements**: Promising future architectural directions include **hybrid retrieval (BM25 + dense)** for exact keyword capture, domain-specific evaluator fine-tuning/calibration, or an explicit context sufficiency verification step before suppressing search.
 
 ---
 

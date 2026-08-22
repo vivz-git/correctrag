@@ -257,3 +257,73 @@ def test_pipeline_error_becomes_safe_http_500(
     # Ensure secret API keys / sensitive messages are NOT leaked
     assert "secret_api_key" not in data["detail"]
     assert "RuntimeError" in data["detail"]
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# 5. LLM Provider Factory Tests
+# ─────────────────────────────────────────────────────────────────────────────
+
+def test_provider_selection_groq_default(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Default LLM_PROVIDER (or explicitly 'groq') resolves to GroqClient."""
+    from app.api.routes import _get_llm_client
+    from app.generation.groq_client import GroqClient
+
+    monkeypatch.setenv("GROQ_API_KEY", "gsk_test_key_12345")
+    monkeypatch.delenv("LLM_PROVIDER", raising=False)
+
+    client = _get_llm_client()
+    assert isinstance(client, GroqClient)
+    assert client.model == "openai/gpt-oss-120b"
+
+    # Explicit 'groq' with custom model
+    monkeypatch.setenv("LLM_PROVIDER", "groq")
+    monkeypatch.setenv("GROQ_MODEL", "llama-3.3-70b-versatile")
+    client_custom = _get_llm_client()
+    assert isinstance(client_custom, GroqClient)
+    assert client_custom.model == "llama-3.3-70b-versatile"
+
+
+def test_provider_selection_gemini(monkeypatch: pytest.MonkeyPatch) -> None:
+    """LLM_PROVIDER=gemini resolves to GeminiClient."""
+    from app.api.routes import _get_llm_client
+    from app.generation.gemini_client import GeminiClient
+
+    monkeypatch.setenv("LLM_PROVIDER", "gemini")
+    monkeypatch.setenv("GEMINI_API_KEY", "test_gemini_key_67890")
+    monkeypatch.setenv("GEMINI_MODEL", "gemini-3.6-flash")
+
+    client = _get_llm_client()
+    assert isinstance(client, GeminiClient)
+    assert client.model == "gemini-3.6-flash"
+
+
+def test_provider_selection_unsupported(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Unsupported LLM_PROVIDER value raises a clear ValueError."""
+    from app.api.routes import _get_llm_client
+
+    monkeypatch.setenv("LLM_PROVIDER", "anthropic")
+    with pytest.raises(ValueError, match="Unsupported LLM_PROVIDER 'anthropic'"):
+        _get_llm_client()
+
+
+def test_provider_selection_groq_missing_key(monkeypatch: pytest.MonkeyPatch) -> None:
+    """LLM_PROVIDER=groq without GROQ_API_KEY raises a clear ValueError."""
+    from app.api.routes import _get_llm_client
+
+    monkeypatch.setenv("LLM_PROVIDER", "groq")
+    monkeypatch.delenv("GROQ_API_KEY", raising=False)
+
+    with pytest.raises(ValueError, match="GROQ_API_KEY environment variable is missing"):
+        _get_llm_client()
+
+
+def test_provider_selection_gemini_missing_key(monkeypatch: pytest.MonkeyPatch) -> None:
+    """LLM_PROVIDER=gemini without GEMINI_API_KEY raises a clear ValueError."""
+    from app.api.routes import _get_llm_client
+
+    monkeypatch.setenv("LLM_PROVIDER", "gemini")
+    monkeypatch.delenv("GEMINI_API_KEY", raising=False)
+
+    with pytest.raises(ValueError, match="GEMINI_API_KEY environment variable is missing"):
+        _get_llm_client()
+
