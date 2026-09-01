@@ -415,12 +415,12 @@ def _build_llm_client(provider: str = "gemini") -> Any:
 def _build_baseline_rag(provider: str = "gemini") -> Any:
     """Instantiate BaselineRAG with real components from environment."""
     from app.retrieval.embeddings import EmbeddingModel
-    from app.retrieval.vector_store import ChromaVectorStore
+    from app.retrieval.vector_store import InMemoryVectorStore
     from app.retrieval.retriever import VectorRetriever
     from app.generation.rag_pipeline import BaselineRAG
 
     embedding_model = EmbeddingModel()
-    vector_store = ChromaVectorStore(
+    vector_store = InMemoryVectorStore(
         embedding_model=embedding_model,
         collection_name="correctrag",
         persist_directory=str(_root / "chroma_data"),
@@ -433,7 +433,7 @@ def _build_baseline_rag(provider: str = "gemini") -> Any:
 def _build_crag_pipeline(provider: str = "gemini") -> Any:
     """Instantiate CRAGPipeline with real components from environment."""
     from app.retrieval.embeddings import EmbeddingModel
-    from app.retrieval.vector_store import ChromaVectorStore
+    from app.retrieval.vector_store import InMemoryVectorStore
     from app.retrieval.retriever import VectorRetriever
     from app.evaluation.relevance_evaluator import RelevanceEvaluator
     from app.evaluation.action_router import ActionRouter
@@ -449,7 +449,7 @@ def _build_crag_pipeline(provider: str = "gemini") -> Any:
     llm_client = _build_llm_client(provider=provider)
 
     embedding_model = EmbeddingModel()
-    vector_store = ChromaVectorStore(
+    vector_store = InMemoryVectorStore(
         embedding_model=embedding_model,
         collection_name="correctrag",
         persist_directory=str(_root / "chroma_data"),

@@ -28,7 +28,7 @@ sys.path.insert(0, os.path.join(_PROJECT_ROOT, "backend"))
 
 from app.ingestion.pdf_loader import load_pdf
 from app.retrieval.embeddings import EmbeddingModel
-from app.retrieval.vector_store import ChromaVectorStore
+from app.retrieval.vector_store import InMemoryVectorStore
 from app.retrieval.retriever import VectorRetriever
 from app.generation.gemini_client import GeminiClient, GeminiAPIError
 from app.generation.rag_pipeline import BaselineRAG
@@ -85,7 +85,7 @@ def run_demo(pdf_path: str | None) -> None:
     # ── 2. Initialize retrieval stack ─────────────────────────────────────────
     print("\n[1/4] Initializing Embedding Model & ChromaDB...")
     embedding_model = EmbeddingModel()
-    vector_store = ChromaVectorStore(
+    vector_store = InMemoryVectorStore(
         embedding_model=embedding_model,
         persist_directory=":memory:",   # ephemeral — demo only
     )

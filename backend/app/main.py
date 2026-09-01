@@ -2,6 +2,7 @@
 Main FastAPI Application Entrypoint for CorrectRAG.
 """
 
+import asyncio
 import os
 import sys
 from pathlib import Path
@@ -24,21 +25,27 @@ async def lifespan(app: FastAPI):
     from app.api.routes import get_crag_pipeline
     from app.ingestion.pdf_loader import load_pdf
 
-    # Initialize pipeline which configures the vector store
-    pipeline = get_crag_pipeline()
-    vector_store = pipeline.retriever.vector_store
+    async def _index_background():
+        try:
+            pipeline = get_crag_pipeline()
+            vector_store = pipeline.retriever.vector_store
 
-    if vector_store.count() == 0:
-        print("ChromaDB is empty. Indexing CRAG.pdf...")
-        root_dir = Path(__file__).resolve().parent.parent.parent
-        pdf_path = root_dir / "CRAG.pdf"
-        if pdf_path.exists():
-            chunks = load_pdf(pdf_path, chunk_size=500, chunk_overlap=100)
-            vector_store.add_chunks(chunks)
-            print(f"Indexed {len(chunks)} chunks into ChromaDB.")
-        else:
-            print(f"WARNING: {pdf_path} not found. Knowledge base remains empty.")
-    
+            if vector_store.count() == 0:
+                print("Vector store is empty. Indexing CRAG.pdf...")
+                root_dir = Path(__file__).resolve().parent.parent.parent
+                pdf_path = root_dir / "CRAG.pdf"
+                if pdf_path.exists():
+                    chunks = load_pdf(pdf_path, chunk_size=500, chunk_overlap=100)
+                    loop = asyncio.get_running_loop()
+                    await loop.run_in_executor(None, vector_store.add_chunks, chunks)
+                    print(f"Indexed {len(chunks)} chunks into vector store.")
+                else:
+                    print(f"WARNING: {pdf_path} not found. Knowledge base remains empty.")
+        except Exception as e:
+            print(f"Error during background indexing: {e}")
+
+    # Launch background indexing task so server starts listening immediately
+    asyncio.create_task(_index_background())
     yield
 
 

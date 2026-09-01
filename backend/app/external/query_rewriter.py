@@ -23,13 +23,11 @@ from app.generation.llm_provider import LLMProvider
 
 
 REWRITE_PROMPT_TEMPLATE = """\
-You are an expert web search query optimizer.
-Your task is to transform a natural language question into a concise web search query consisting of at most {max_keywords} keywords or key phrases separated by commas.
+Transform the following user question into at most {max_keywords} concise web search keywords separated by commas.
 
 Rules:
-1. Extract the core entities, topics, and question intent.
-2. Output at most {max_keywords} comma-separated search terms.
-3. Output ONLY the comma-separated search terms. Do NOT include explanations, preambles, prefixes, bullets, or quotation marks.
+1. Output ONLY the keywords separated by commas.
+2. Do NOT say hello, do NOT explain, and do NOT output conversational filler.
 
 Examples:
 Question: What is Henry Feilden's occupation?
@@ -42,8 +40,7 @@ Question: When did Albert Einstein win the Nobel Prize in Physics?
 Search Query: Albert Einstein, Nobel Prize Physics, year
 
 Question: {query}
-Search Query:\
-"""
+Search Query:"""
 
 
 def sanitize_rewritten_query(raw_text: str, max_keywords: int = 3) -> str:

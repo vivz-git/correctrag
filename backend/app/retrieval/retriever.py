@@ -9,7 +9,7 @@ from typing import Any
 from pydantic import BaseModel, Field
 
 from app.retrieval.embeddings import EmbeddingModel
-from app.retrieval.vector_store import ChromaVectorStore
+from app.retrieval.vector_store import InMemoryVectorStore
 
 
 class RetrievedChunk(BaseModel):
@@ -31,13 +31,13 @@ class VectorRetriever:
 
     def __init__(
         self,
-        vector_store: ChromaVectorStore,
+        vector_store: InMemoryVectorStore,
         embedding_model: EmbeddingModel | None = None,
     ) -> None:
         """Initialize the vector retriever.
 
         Args:
-            vector_store: Instantiated ChromaVectorStore.
+            vector_store: Instantiated InMemoryVectorStore.
             embedding_model: EmbeddingModel instance (shares vector_store's model by default).
         """
         self.vector_store = vector_store

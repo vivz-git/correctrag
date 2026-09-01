@@ -6,20 +6,34 @@ import pytest
 
 from app.ingestion.pdf_loader import DocumentChunk
 from app.retrieval.embeddings import EmbeddingModel
-from app.retrieval.vector_store import ChromaVectorStore
+from app.retrieval.vector_store import InMemoryVectorStore
 from app.retrieval.retriever import RetrievedChunk, VectorRetriever
 
 
+class MockEmbeddingModel(EmbeddingModel):
+    @property
+    def dimension(self) -> int:
+        return 3072
+    def embed_query(self, text: str) -> list[float]:
+        # Use text length to create slightly different vectors
+        val = 0.1 + (len(text) % 10) * 0.01
+        if "Eiffel" in text:
+            val = 0.9
+        elif "Colosseum" in text:
+            val = 0.8
+        return [val] * self.dimension
+    def embed_documents(self, texts: list[str]) -> list[list[float]]:
+        return [self.embed_query(t) for t in texts]
+
 @pytest.fixture(scope="module")
 def shared_embedding_model() -> EmbeddingModel:
-    """Create a module-scoped EmbeddingModel to avoid redundant model loading in tests."""
-    return EmbeddingModel(model_name="sentence-transformers/all-MiniLM-L6-v2")
+    return MockEmbeddingModel()
 
 
 @pytest.fixture
-def memory_vector_store(shared_embedding_model: EmbeddingModel) -> ChromaVectorStore:
-    """Create a clean in-memory ChromaVectorStore for each test."""
-    store = ChromaVectorStore(
+def memory_vector_store(shared_embedding_model: EmbeddingModel) -> InMemoryVectorStore:
+    """Create a clean in-memory InMemoryVectorStore for each test."""
+    store = InMemoryVectorStore(
         persist_directory=":memory:",
         collection_name="test_collection",
         embedding_model=shared_embedding_model,
@@ -73,7 +87,7 @@ def test_embeddings_return_correct_shape_and_type(shared_embedding_model: Embedd
     assert all(isinstance(vec, list) for vec in embeddings)
     assert len(embeddings[0]) == shared_embedding_model.dimension
     assert len(embeddings[1]) == shared_embedding_model.dimension
-    assert shared_embedding_model.dimension == 384
+    assert shared_embedding_model.dimension == 3072
 
 
 def test_embed_query_returns_consistent_vector(shared_embedding_model: EmbeddingModel):
@@ -95,7 +109,7 @@ def test_embed_documents_empty_list(shared_embedding_model: EmbeddingModel):
 
 
 def test_vector_store_creation_and_insertion(
-    memory_vector_store: ChromaVectorStore,
+    memory_vector_store: InMemoryVectorStore,
     sample_chunks: list[DocumentChunk],
 ):
     assert memory_vector_store.count() == 0
@@ -106,7 +120,7 @@ def test_vector_store_creation_and_insertion(
 
 
 def test_vector_store_avoids_duplicate_inserts(
-    memory_vector_store: ChromaVectorStore,
+    memory_vector_store: InMemoryVectorStore,
     sample_chunks: list[DocumentChunk],
 ):
     # Insert chunks first time
@@ -119,7 +133,7 @@ def test_vector_store_avoids_duplicate_inserts(
 
 
 def test_vector_store_clear(
-    memory_vector_store: ChromaVectorStore,
+    memory_vector_store: InMemoryVectorStore,
     sample_chunks: list[DocumentChunk],
 ):
     memory_vector_store.add_chunks(sample_chunks)
@@ -135,7 +149,7 @@ def test_vector_store_clear(
 
 
 def test_retriever_finds_relevant_chunk(
-    memory_vector_store: ChromaVectorStore,
+    memory_vector_store: InMemoryVectorStore,
     sample_chunks: list[DocumentChunk],
 ):
     memory_vector_store.add_chunks(sample_chunks)
@@ -157,7 +171,7 @@ def test_retriever_finds_relevant_chunk(
 
 
 def test_retriever_respects_top_k(
-    memory_vector_store: ChromaVectorStore,
+    memory_vector_store: InMemoryVectorStore,
     sample_chunks: list[DocumentChunk],
 ):
     memory_vector_store.add_chunks(sample_chunks)
@@ -171,7 +185,7 @@ def test_retriever_respects_top_k(
 
 
 def test_retriever_empty_collection_behaves_safely(
-    memory_vector_store: ChromaVectorStore,
+    memory_vector_store: InMemoryVectorStore,
 ):
     assert memory_vector_store.count() == 0
     retriever = VectorRetriever(vector_store=memory_vector_store)
@@ -181,7 +195,7 @@ def test_retriever_empty_collection_behaves_safely(
 
 
 def test_retriever_empty_query_returns_empty_list(
-    memory_vector_store: ChromaVectorStore,
+    memory_vector_store: InMemoryVectorStore,
     sample_chunks: list[DocumentChunk],
 ):
     memory_vector_store.add_chunks(sample_chunks)

@@ -11,10 +11,13 @@ from typing import Any
 
 from pydantic import BaseModel, Field
 
-try:
-    import pymupdf
-except ImportError:
-    import fitz as pymupdf
+def _get_pymupdf():
+    try:
+        import pymupdf
+        return pymupdf
+    except ImportError:
+        import fitz
+        return fitz
 
 
 class DocumentChunk(BaseModel):
@@ -194,7 +197,8 @@ def load_pdf(
         raise PDFNotFoundError(f"PDF file not found at path: '{path.resolve()}'")
 
     try:
-        doc = pymupdf.open(str(path))
+        pymupdf_lib = _get_pymupdf()
+        doc = pymupdf_lib.open(str(path))
     except Exception as exc:
         raise InvalidPDFError(f"Failed to parse PDF file '{path.name}': {exc}") from exc
 

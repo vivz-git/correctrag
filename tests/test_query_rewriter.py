@@ -152,7 +152,7 @@ class TestQueryRewriterExecution:
         mock_client.generate.assert_called_once()
         prompt_arg = mock_client.generate.call_args[0][0]
         assert question in prompt_arg
-        assert "at most 3 keywords" in prompt_arg
+        assert "at most 3 concise web search keywords" in prompt_arg
 
     def test_empty_query_raises_value_error(self):
         mock_client = MagicMock()

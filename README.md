@@ -1,3 +1,11 @@
+---
+title: CorrectRAG
+emoji: 🚀
+colorFrom: blue
+colorTo: green
+sdk: docker
+app_port: 8000
+---
 # CorrectRAG
 
 CorrectRAG is a production-oriented implementation of the **Corrective Retrieval Augmented Generation** framework, designed to mitigate hallucinations in retrieval-augmented language models. By evaluating retrieved document quality prior to generation, the system dynamically routes queries across three confidence states: refining high-confidence internal documents, discarding low-confidence results in favor of rewritten web searches, or combining both when retrieval relevance is ambiguous.
@@ -23,15 +31,16 @@ CorrectRAG is a production-oriented implementation of the **Corrective Retrieval
 PDF Document
   → Page Extraction & Cleaning   (PyMuPDF)
   → Deterministic Chunking       (page-bounded, boundary-snapped)
-  → Sentence Transformer Embeds  (all-MiniLM-L6-v2 / 384-dim)
-  → ChromaDB Indexing            (cosine similarity)
+  → Gemini 2.0 Embeddings        (gemini-embedding-2 / 3072-dim)
+  → In-Memory Vector Store       (pure Python + deterministic math)
   → Semantic Vector Retrieval    (top-K chunks + scores)
   → Prompt Construction          (grounded, source-cited)
-  → Gemini 3.6 Flash             (Google GenAI SDK)
+  → Groq / Gemini Generation
   → Grounded Answer + Citations
 ```
 
-### CRAG Pipeline (In Progress)
+### CRAG Pipeline
+
 
 ```
 Query
@@ -385,7 +394,7 @@ An offline empirical analysis of compound queries (e.g., `"What does CRAG stand 
 
 ### 1. Empirical Observation
 - **Query**: `"What does CRAG stand for and what are its three actions?"`
-- **Dense Retriever**: `all-MiniLM-L6-v2` with cosine distance via ChromaDB.
+- **Dense Retriever**: `gemini-embedding-2` with cosine distance via in-memory vector store.
 - **Production Baseline ($k = 5$)**: Top-5 dense retrieval pulled peripheral passages mentioning general CRAG adaptability and benchmark datasets, but missed the definition chunks.
 - **Full Corpus Ranks of Ground-Truth Chunks (168 chunks)**:
   - `CRAG_p5_c004` (action definitions: Correct, Incorrect, Ambiguous): **Rank 40** (cosine: `0.1541`)
@@ -395,11 +404,11 @@ An offline empirical analysis of compound queries (e.g., `"What does CRAG stand 
 
 ### 2. Retrieval Depth Tradeoff ($k \in \{5, 8, 10, 15\}$)
 - Offline evaluation across $k \in \{5, 8, 10, 15\}$ demonstrated that increasing $k$ up to 15 did **not** retrieve the ground-truth definition chunks (which remain ranked at #40, #45, #73, #75).
-- Increasing $k$ expanded the candidate pool for the zero-shot CrossEncoder (`ms-marco-MiniLM-L-6-v2`), which produced false-positive high relevance scores on broad summary text ($s_{\max}$ reached `+0.9940` on a non-definition chunk at $k=15$).
+- Increasing $k$ expanded the candidate pool for the similarity-based relevance evaluator, which produced false-positive high relevance scores on broad summary text ($s_{\max}$ reached `+0.9940` on a non-definition chunk at $k=15$).
 - Consequently, the `ActionRouter` routed to `CORRECT` ($\alpha = 0.5$), which suppressed external web fallback even though the refined internal strips lacked the required answer facts, leading the grounded LLM to faithfully return an unanswerable refusal.
 
 ### 3. Engineering Context & Distinctions
-- **Adaptation-Specific Finding**: This behavior is an engineering evaluation finding stemming from using a frozen generic dense bi-encoder coupled with a zero-shot CrossEncoder on compound multi-intent questions.
+- **Adaptation-Specific Finding**: This behavior is an engineering evaluation finding stemming from using a frozen generic dense embeddings coupled with a similarity-based evaluator on compound multi-intent questions.
 - **No Equivalence Claim to Paper**: This is not evidence that the original CRAG paper experienced this failure mode, as the paper employed a fine-tuned T5-large evaluator and hybrid BM25 retrieval.
 - **Future Improvements**: Promising future architectural directions include **hybrid retrieval (BM25 + dense)** for exact keyword capture, domain-specific evaluator fine-tuning/calibration, or an explicit context sufficiency verification step before suppressing search.
 
@@ -464,13 +473,13 @@ docker compose up --build
 docker compose down
 ```
 
-### 5. ChromaDB Persistence Strategy
-The `docker-compose.yml` mounts the host's `./chroma_data` directory to `/app/chroma_data` in the backend container.
-- If pre-indexed chunks exist locally (e.g. from `CRAG.pdf`), the backend loads them instantly without re-embedding.
-- On a fresh machine with an empty or missing `chroma_data/` directory, index `CRAG.pdf` into the persistent `correctrag` collection once by running:
-  ```bash
-  python -c "import sys; sys.path.insert(0, 'backend'); from app.ingestion.pdf_loader import load_pdf; from app.retrieval.embeddings import EmbeddingModel; from app.retrieval.vector_store import ChromaVectorStore; vs = ChromaVectorStore(embedding_model=EmbeddingModel(), collection_name='correctrag', persist_directory='chroma_data'); chunks = load_pdf('CRAG.pdf'); vs.add_chunks(chunks); print(f'Successfully indexed {len(chunks)} chunks into chroma_data/')"
-  ```
+### 5. Lightweight Architecture Notes
+This version of CorrectRAG utilizes a heavily optimized, lightweight architecture to minimize deployment footprint and startup time:
+- **No heavy PyTorch or SentenceTransformer ML frameworks**.
+- **No local ChromaDB vector databases**.
+- Replaced the local CrossEncoder with a **lightweight similarity-based relevance evaluator**.
+- Vector store is purely in-memory and instantly indexes `CRAG.pdf` in the background on API startup.
+- The resulting container (linux/arm64) is only ~208MB, offering instant `/health` readiness.
 
 ---
 

@@ -16,7 +16,7 @@ if str(backend_dir) not in sys.path:
 
 from app.ingestion.pdf_loader import DocumentChunk, load_pdf
 from app.retrieval.embeddings import EmbeddingModel
-from app.retrieval.vector_store import ChromaVectorStore
+from app.retrieval.vector_store import InMemoryVectorStore
 from app.retrieval.retriever import VectorRetriever
 
 
@@ -28,7 +28,7 @@ def main():
     # 1. Initialize Components
     print("\n[1/4] Initializing Embedding Model & ChromaDB Vector Store...")
     embedding_model = EmbeddingModel(model_name="sentence-transformers/all-MiniLM-L6-v2")
-    vector_store = ChromaVectorStore(
+    vector_store = InMemoryVectorStore(
         persist_directory=str(root_dir / "chroma_data"),
         collection_name="demo_collection",
         embedding_model=embedding_model,

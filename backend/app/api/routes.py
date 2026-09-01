@@ -26,7 +26,7 @@ from app.generation import GeminiClient, GroqClient, LLMProvider
 from app.pipeline.crag_pipeline import CRAGPipeline, CRAGResult
 from app.retrieval.embeddings import EmbeddingModel
 from app.retrieval.retriever import VectorRetriever
-from app.retrieval.vector_store import ChromaVectorStore
+from app.retrieval.vector_store import InMemoryVectorStore
 
 router = APIRouter()
 
@@ -80,7 +80,7 @@ def get_crag_pipeline() -> CRAGPipeline:
 
     llm_client = _get_llm_client()
     embedding_model = EmbeddingModel()
-    vector_store = ChromaVectorStore(
+    vector_store = InMemoryVectorStore(
         embedding_model=embedding_model,
         collection_name="correctrag",
         persist_directory=chroma_dir,

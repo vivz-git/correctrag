@@ -3,7 +3,7 @@ Pydantic Request and Response Schemas for CorrectRAG HTTP API.
 """
 
 from typing import Any, Optional
-from pydantic import BaseModel, Field, field_validator
+from pydantic import BaseModel, Field, field_validator, model_validator
 
 
 class HealthResponse(BaseModel):
@@ -21,6 +21,16 @@ class QueryRequest(BaseModel):
         description="The natural language question to answer using CRAG",
         min_length=1,
     )
+
+    @model_validator(mode="before")
+    @classmethod
+    def handle_query_alias(cls, data: Any) -> Any:
+        """Allow 'query' as a flexible alias for 'question'."""
+        if isinstance(data, dict):
+            if "question" not in data and "query" in data:
+                data = dict(data)
+                data["question"] = data["query"]
+        return data
 
     @field_validator("question")
     @classmethod
