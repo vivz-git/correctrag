@@ -51,6 +51,10 @@ class InMemoryVectorStore:
             try:
                 with open(self.persist_path, "rb") as f:
                     self.chunks = pickle.load(f)
+                if hasattr(self.embedding_model, "_cache"):
+                    for c_data in self.chunks.values():
+                        if "document" in c_data and "embedding" in c_data:
+                            self.embedding_model._cache[c_data["document"]] = c_data["embedding"]
             except Exception:
                 self.chunks = {}
 

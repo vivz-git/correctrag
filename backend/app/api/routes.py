@@ -85,9 +85,9 @@ def get_crag_pipeline() -> CRAGPipeline:
         collection_name="correctrag",
         persist_directory=chroma_dir,
     )
-    retriever = VectorRetriever(vector_store=vector_store)
-    evaluator = RelevanceEvaluator()
-    router_component = ActionRouter(clearly_relevant_threshold=0.5, clearly_irrelevant_threshold=-0.2, llm_client=llm_client)
+    retriever = VectorRetriever(vector_store=vector_store, embedding_model=embedding_model)
+    evaluator = RelevanceEvaluator(embedding_model=embedding_model)
+    router_component = ActionRouter(clearly_relevant_threshold=0.7, clearly_irrelevant_threshold=-0.1, llm_client=llm_client)
     refiner = KnowledgeRefiner(evaluator=evaluator)
     query_rewriter = QueryRewriter(llm_client=llm_client)
     web_search = WebSearchClient(api_key=tavily_key, max_results=tavily_max_results)
@@ -100,7 +100,7 @@ def get_crag_pipeline() -> CRAGPipeline:
         query_rewriter=query_rewriter,
         web_search=web_search,
         llm_client=llm_client,
-        top_k=5,
+        top_k=10,
     )
 
 

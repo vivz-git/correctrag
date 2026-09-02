@@ -63,3 +63,4 @@ Thumbs.db
 CRAG.pdf
 cached_embeddings.json
 .agents/
+.vercel/

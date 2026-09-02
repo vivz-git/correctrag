@@ -23,6 +23,7 @@ class EmbeddingModel:
         """
         self.model_name = model_name
         self.api_key = api_key
+        self._cache: dict[str, list[float]] = {}
 
     def _get_client(self) -> genai.Client:
         """Create a thread-safe GenAI client instance."""
@@ -54,8 +55,12 @@ class EmbeddingModel:
         if not text:
             return [0.0] * self.dimension
 
+        if text in self._cache:
+            return self._cache[text]
+
         import time
-        retries = 6
+        import re
+        retries = 8
         for attempt in range(retries):
             try:
                 client = self._get_client()
@@ -63,10 +68,17 @@ class EmbeddingModel:
                     model=self.model_name,
                     contents=text,
                 )
-                return list(response.embeddings[0].values)
+                emb = list(response.embeddings[0].values)
+                self._cache[text] = emb
+                return emb
             except Exception as exc:
                 if ("429" in str(exc) or "RESOURCE_EXHAUSTED" in str(exc)) and attempt < retries - 1:
-                    time.sleep(3.0 * (attempt + 1))
+                    match = re.search(r"retry in (\d+(?:\.\d+)?)s", str(exc)) or re.search(r"retryDelay': '(\d+)s", str(exc))
+                    if match:
+                        sleep_time = float(match.group(1)) + 1.5
+                    else:
+                        sleep_time = min(30.0, 5.0 * (2 ** min(attempt, 3)))
+                    time.sleep(sleep_time)
                 else:
                     raise RuntimeError(f"Failed to compute query embedding: {exc}") from exc
 
@@ -82,10 +94,26 @@ class EmbeddingModel:
         if not texts:
             return []
 
-        if len(texts) == 1:
-            return [self.embed_query(texts[0])]
+        # Partition into cached vs uncached
+        results: list[Optional[list[float]]] = []
+        uncached: list[str] = []
+        uncached_indices: list[int] = []
 
-        # Concurrent embedding for fast batch indexing
-        max_workers = min(16, len(texts))
-        with ThreadPoolExecutor(max_workers=max_workers) as executor:
-            return list(executor.map(self.embed_query, texts))
+        for i, t in enumerate(texts):
+            if t in self._cache:
+                results.append(self._cache[t])
+            else:
+                results.append(None)
+                uncached.append(t)
+                uncached_indices.append(i)
+
+        if uncached:
+            max_workers = min(16, len(uncached))
+            with ThreadPoolExecutor(max_workers=max_workers) as executor:
+                uncached_embs = list(executor.map(self.embed_query, uncached))
+
+            for idx, emb, t in zip(uncached_indices, uncached_embs, uncached):
+                results[idx] = emb
+                self._cache[t] = emb
+
+        return [r for r in results if r is not None]

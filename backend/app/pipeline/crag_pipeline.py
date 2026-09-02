@@ -344,7 +344,7 @@ class CRAGPipeline:
         query_rewriter: QueryRewriter,
         web_search: WebSearchClient,
         llm_client: LLMProvider,
-        top_k: int = 5,
+        top_k: int = 10,
     ) -> None:
         """Initialize the CRAGPipeline with all required components.
 
