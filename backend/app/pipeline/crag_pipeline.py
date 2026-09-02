@@ -16,9 +16,9 @@ full corrective retrieval-augmented generation inference flow:
     5. Generate answer using the composed context.
 
 [OUR ADAPTATION]
-- Retrieval: VectorRetriever (ChromaDB + all-MiniLM-L6-v2) replaces the
+- Retrieval: VectorRetriever uses Gemini embeddings and in-memory store.
   paper's BM25+dense hybrid retriever.
-- Evaluator: Frozen CrossEncoder (ms-marco-MiniLM-L-6-v2) with bounded
+- Evaluator: Two-stage evaluation with similarity filter and LLM Judge.
   [-1, 1] score mapping replaces the paper's fine-tuned T5-large evaluator.
 - Thresholds: alpha/beta are configurable parameters, not the paper's
   empirically fitted T5-specific values.
@@ -47,7 +47,7 @@ from pydantic import BaseModel, Field
 
 from app.retrieval.retriever import RetrievedChunk, VectorRetriever
 from app.evaluation.relevance_evaluator import RelevanceEvaluator
-from app.evaluation.action_router import Action, ActionRouter
+from app.evaluation.action_router import Action, ActionRouter, RoutingDecision
 from app.evaluation.knowledge_refiner import KnowledgeRefiner, KnowledgeStrip
 from app.external.query_rewriter import QueryRewriter
 from app.external.web_search import WebSearchClient, WebSearchResult
@@ -107,7 +107,7 @@ class ExecutionTrace(BaseModel):
 
     retrieved_count: int = Field(
         ...,
-        description="Number of internal documents retrieved from ChromaDB",
+        description="Number of internal documents retrieved from vector store",
     )
     action: Action = Field(
         ...,
@@ -309,7 +309,7 @@ class CRAGPipeline:
                       → Generate from combined context
 
     Components:
-        retriever:        VectorRetriever — internal ChromaDB semantic search.
+        retriever:        VectorRetriever — internal semantic search.
         evaluator:        RelevanceEvaluator — per-chunk relevance scoring.
         router:           ActionRouter — three-way action decision (CORRECT/INCORRECT/AMBIGUOUS).
         refiner:          KnowledgeRefiner — strip decomposition, scoring, and filtering;
@@ -334,7 +334,7 @@ class CRAGPipeline:
         """Initialize the CRAGPipeline with all required components.
 
         Args:
-            retriever:       VectorRetriever connected to ChromaDB.
+            retriever:       VectorRetriever connected to vector store.
             evaluator:       RelevanceEvaluator for scoring query-document pairs.
             router:          ActionRouter with configured alpha/beta thresholds.
             refiner:         KnowledgeRefiner for strip decomposition and filtering.
@@ -451,6 +451,7 @@ class CRAGPipeline:
         query: str,
         chunks: list[RetrievedChunk],
         scores: list[float],
+        decision: Optional[RoutingDecision] = None,
     ) -> CRAGResult:
         """Handle the CORRECT branch.
 
@@ -476,6 +477,11 @@ class CRAGPipeline:
             retrieved_count=len(chunks),
             action="CORRECT",
             max_relevance_score=max(scores) if scores else None,
+            similarity_pre_filter_decision=decision.similarity_pre_filter_decision if decision else None,
+            judge_called=decision.judge_called if decision else False,
+            judge_decision=decision.judge_decision if decision else None,
+            judge_reason=decision.judge_reason if decision else None,
+            judge_latency=decision.judge_latency if decision else None,
             web_search_used=False,
             rewritten_query=None,
             internal_strip_count=len(internal_strips),
@@ -501,6 +507,7 @@ class CRAGPipeline:
         query: str,
         chunks: list[RetrievedChunk],
         scores: list[float],
+        decision: Optional[RoutingDecision] = None,
     ) -> CRAGResult:
         """Handle the INCORRECT branch.
 
@@ -541,6 +548,11 @@ class CRAGPipeline:
             retrieved_count=len(chunks),
             action="INCORRECT",
             max_relevance_score=max(scores) if scores else None,
+            similarity_pre_filter_decision=decision.similarity_pre_filter_decision if decision else None,
+            judge_called=decision.judge_called if decision else False,
+            judge_decision=decision.judge_decision if decision else None,
+            judge_reason=decision.judge_reason if decision else None,
+            judge_latency=decision.judge_latency if decision else None,
             web_search_used=True,
             rewritten_query=rewritten_query,
             internal_strip_count=0,
@@ -566,6 +578,7 @@ class CRAGPipeline:
         query: str,
         chunks: list[RetrievedChunk],
         scores: list[float],
+        decision: Optional[RoutingDecision] = None,
     ) -> CRAGResult:
         """Handle the AMBIGUOUS branch.
 
@@ -620,6 +633,11 @@ class CRAGPipeline:
             retrieved_count=len(chunks),
             action="AMBIGUOUS",
             max_relevance_score=max(scores) if scores else None,
+            similarity_pre_filter_decision=decision.similarity_pre_filter_decision if decision else None,
+            judge_called=decision.judge_called if decision else False,
+            judge_decision=decision.judge_decision if decision else None,
+            judge_reason=decision.judge_reason if decision else None,
+            judge_latency=decision.judge_latency if decision else None,
             web_search_used=True,
             rewritten_query=rewritten_query,
             internal_strip_count=len(internal_strips),

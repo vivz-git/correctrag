@@ -88,6 +88,21 @@ class TraceSchema(BaseModel):
     max_relevance_score: Optional[float] = Field(
         default=None, description="Maximum relevance score s_max across internal documents"
     )
+    similarity_pre_filter_decision: Optional[str] = Field(
+        default=None, description="Action determined by cheap embedding similarity pre-filter"
+    )
+    judge_called: bool = Field(
+        default=False, description="Whether the LLM judge was called for borderline evaluation"
+    )
+    judge_decision: Optional[str] = Field(
+        default=None, description="LLM judge final decision"
+    )
+    judge_reason: Optional[str] = Field(
+        default=None, description="LLM judge reasoning"
+    )
+    judge_latency: Optional[float] = Field(
+        default=None, description="Latency of LLM judge call in seconds"
+    )
     web_search_used: bool = Field(
         ..., description="Whether external web search was triggered"
     )

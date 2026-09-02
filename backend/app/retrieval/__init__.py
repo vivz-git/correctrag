@@ -1,7 +1,7 @@
 """
 Semantic Retrieval Package for CorrectRAG.
 
-Provides embedding model management, ChromaDB persistence, and vector retrieval.
+Provides embedding model management and vector retrieval.
 """
 
 from app.retrieval.embeddings import EmbeddingModel

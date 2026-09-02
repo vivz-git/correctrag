@@ -66,7 +66,7 @@ class BaselineRAG:
     """Standard Retrieve-then-Generate pipeline (no CRAG logic).
 
     Args:
-        retriever:     Initialised VectorRetriever connected to ChromaDB.
+        retriever:     Initialised VectorRetriever.
         llm_client:    GeminiClient (or any object with a .generate(str)->str method).
         top_k:         Number of chunks to retrieve per query (default: 5).
         skip_llm_on_empty: When True (default), return a deterministic fallback

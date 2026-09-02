@@ -1,7 +1,7 @@
 """
 Vector Retriever Module for CorrectRAG.
 
-Embeds incoming queries, retrieves nearest chunks from ChromaDB,
+Embeds incoming queries, retrieves nearest chunks from vector store,
 and returns structured RetrievedChunk instances with metadata and similarity scores.
 """
 
@@ -27,7 +27,7 @@ class RetrievedChunk(BaseModel):
 
 
 class VectorRetriever:
-    """Semantic vector retriever using ChromaDB and sentence-transformers."""
+    """Semantic vector retriever using in-memory store and Gemini embeddings."""
 
     def __init__(
         self,
@@ -60,7 +60,7 @@ class VectorRetriever:
         # 1. Embed query
         query_vector = self.embedding_model.embed_query(clean_query)
 
-        # 2. Query ChromaDB vector store
+        # 2. Query vector store
         results = self.vector_store.query(query_embedding=query_vector, top_k=top_k)
 
         ids = results.get("ids", [[]])[0]

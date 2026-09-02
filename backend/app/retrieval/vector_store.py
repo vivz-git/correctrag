@@ -3,7 +3,7 @@ In-Memory Vector Store Wrapper for CorrectRAG.
 
 Manages persistent or in-memory vector storage, indexing DocumentChunk objects,
 and preventing duplicate insertions using deterministic chunk IDs.
-Replaces ChromaDB with a lightweight pure-Python + math similarity implementation.
+A lightweight pure-Python + math similarity implementation.
 """
 
 import math
@@ -112,7 +112,7 @@ class InMemoryVectorStore:
         if norm1 == 0 or norm2 == 0:
             return 1.0
         similarity = dot / (norm1 * norm2)
-        # Match ChromaDB's distance metric (1 - similarity)
+        # Match standard distance metric (1 - similarity)
         return float(max(0.0, min(2.0, 1.0 - similarity)))
 
     def query(
@@ -127,7 +127,7 @@ class InMemoryVectorStore:
             top_k: Maximum number of closest candidate results to return.
 
         Returns:
-            Raw dictionary result mimicking ChromaDB containing ids, documents, metadatas, distances.
+            Raw dictionary result containing ids, documents, metadatas, distances.
         """
         if not self.chunks:
             return {"ids": [[]], "documents": [[]], "metadatas": [[]], "distances": [[]]}

@@ -456,7 +456,7 @@ def _build_crag_pipeline(provider: str = "gemini") -> Any:
     )
     retriever = VectorRetriever(vector_store=vector_store)
     evaluator = RelevanceEvaluator()
-    router = ActionRouter(alpha=0.5, beta=-0.2)
+    router = ActionRouter(clearly_relevant_threshold=0.5, clearly_irrelevant_threshold=-0.2, llm_client=llm_client)
     refiner = KnowledgeRefiner(evaluator=evaluator)
     query_rewriter = QueryRewriter(llm_client=llm_client)
     web_search = WebSearchClient(api_key=tavily_key)

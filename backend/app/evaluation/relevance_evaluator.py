@@ -1,7 +1,7 @@
 """
 Relevance Evaluator for CorrectRAG (Lightweight).
 
-Replaces the local PyTorch CrossEncoder with a deterministic, similarity-based
+Uses a deterministic, similarity-based
 relevance evaluator. Maps embedding cosine similarity into the [-1.0, 1.0]
 range to seamlessly integrate with the existing ActionRouter and KnowledgeRefiner.
 """

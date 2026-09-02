@@ -71,7 +71,7 @@ def get_crag_pipeline() -> CRAGPipeline:
         raise ValueError("TAVILY_API_KEY environment variable is missing.")
     tavily_max_results = int(os.environ.get("TAVILY_MAX_RESULTS", 5))
 
-    # Resolve ChromaDB directory
+    # Resolve vector store directory
     chroma_dir = os.environ.get("CHROMA_PERSIST_DIR")
     if not chroma_dir:
         # Default to <workspace_root>/chroma_data
@@ -87,7 +87,7 @@ def get_crag_pipeline() -> CRAGPipeline:
     )
     retriever = VectorRetriever(vector_store=vector_store)
     evaluator = RelevanceEvaluator()
-    router_component = ActionRouter(alpha=0.5, beta=-0.2)
+    router_component = ActionRouter(clearly_relevant_threshold=0.5, clearly_irrelevant_threshold=-0.2, llm_client=llm_client)
     refiner = KnowledgeRefiner(evaluator=evaluator)
     query_rewriter = QueryRewriter(llm_client=llm_client)
     web_search = WebSearchClient(api_key=tavily_key, max_results=tavily_max_results)
