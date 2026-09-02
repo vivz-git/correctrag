@@ -1,0 +1,602 @@
+[
+  {
+    "id": "q01",
+    "category": "clearly_supported",
+    "question": "What are the three action triggers in Corrective RAG and when are they executed?",
+    "plain_rag": {
+      "answer": "The Corrective Retrieval\u2011Augmented Generation framework defines three possible retrieval\u2011action triggers:\n\n* **Correct** \u2013 triggered when the lightweight retrieval evaluator is confident that the retrieved documents are appropriate; the documents are kept for generation.  \n* **Incorrect** \u2013 triggered when the evaluator judges the retrieved documents to be wrong; the documents are discarded and a web\u2011search fallback is used.\u30105\u2020L1-L4\u3011  \n* **Ambiguous** \u2013 triggered when the evaluator cannot make a confident \u201ccorrect\u201d or \u201cincorrect\u201d judgment; a soft, balanced action combines the original documents with web\u2011search results.\u30105\u2020L4-L7\u3011\n\nSources: [5] CRAG.pdf, page 3.",
+      "retrieved_count": 5,
+      "citations": [
+        {
+          "source": "CRAG.pdf",
+          "page_number": 1,
+          "chunk_id": "CRAG_p1_c003"
+        },
+        {
+          "source": "CRAG.pdf",
+          "page_number": 10,
+          "chunk_id": "CRAG_p10_c008"
+        },
+        {
+          "source": "CRAG.pdf",
+          "page_number": 10,
+          "chunk_id": "CRAG_p10_c007"
+        },
+        {
+          "source": "CRAG.pdf",
+          "page_number": 2,
+          "chunk_id": "CRAG_p2_c009"
+        },
+        {
+          "source": "CRAG.pdf",
+          "page_number": 3,
+          "chunk_id": "CRAG_p3_c011"
+        }
+      ],
+      "latency_seconds": 3.533
+    },
+    "correctrag": {
+      "answer": "I cannot answer this question based on the provided context. \n\nSources: None.",
+      "action": "CORRECT",
+      "rewritten_query": null,
+      "web_search_used": false,
+      "judge_called": false,
+      "judge_decision": null,
+      "judge_reason": null,
+      "internal_strip_count": 5,
+      "external_strip_count": 0,
+      "final_context_source": "internal",
+      "latency_seconds": 6.182
+    }
+  },
+  {
+    "id": "q02",
+    "category": "clearly_supported",
+    "question": "How does the knowledge refinement method in CRAG process retrieved documents?",
+    "plain_rag": {
+      "answer": "CRAG refines retrieved documents with a \u201cdecompose\u2011then\u2011recompose\u201d algorithm that works throughout the retrieval\u2011and\u2011utilization pipeline. The algorithm breaks down the retrieved content, extracts the key insights, and then recomposes only the essential information, filtering out irrelevant or non\u2011essential elements before the model uses the knowledge.  \n\nSources: [2] CRAG.pdf, page\u202f2.",
+      "retrieved_count": 5,
+      "citations": [
+        {
+          "source": "CRAG.pdf",
+          "page_number": 10,
+          "chunk_id": "CRAG_p10_c008"
+        },
+        {
+          "source": "CRAG.pdf",
+          "page_number": 2,
+          "chunk_id": "CRAG_p2_c006"
+        },
+        {
+          "source": "CRAG.pdf",
+          "page_number": 1,
+          "chunk_id": "CRAG_p1_c003"
+        },
+        {
+          "source": "CRAG.pdf",
+          "page_number": 2,
+          "chunk_id": "CRAG_p2_c009"
+        },
+        {
+          "source": "CRAG.pdf",
+          "page_number": 1,
+          "chunk_id": "CRAG_p1_c005"
+        }
+      ],
+      "latency_seconds": 1.995
+    },
+    "correctrag": {
+      "answer": "CRAG\u2019s knowledge\u2011refinement step first uses a lightweight retrieval evaluator to trigger three distinct retrieval actions, then leverages web\u2011search and optimized knowledge utilization to \u201cselectively focus on key information and filter out irrelevant information\u201d from the retrieved documents, enabling automatic self\u2011correction and more efficient use of the retrieved material.  \n\nSources: [1] CRAG.pdf, page\u202f10; [5] CRAG.pdf, page\u202f1.",
+      "action": "CORRECT",
+      "rewritten_query": null,
+      "web_search_used": false,
+      "judge_called": false,
+      "judge_decision": null,
+      "judge_reason": null,
+      "internal_strip_count": 5,
+      "external_strip_count": 0,
+      "final_context_source": "internal",
+      "latency_seconds": 6.405
+    }
+  },
+  {
+    "id": "q03",
+    "category": "clearly_supported",
+    "question": "What role does the external search query rewriter play in CRAG?",
+    "plain_rag": {
+      "answer": "The external search query rewriter converts the original input into a set of keyword\u2011based queries (via ChatGPT) so that a web\u2011search API can be used to retrieve relevant URLs and documents for CRAG.\u202fSources: [1]\u202fPage\u202f6.",
+      "retrieved_count": 5,
+      "citations": [
+        {
+          "source": "CRAG.pdf",
+          "page_number": 6,
+          "chunk_id": "CRAG_p6_c006"
+        },
+        {
+          "source": "CRAG.pdf",
+          "page_number": 10,
+          "chunk_id": "CRAG_p10_c008"
+        },
+        {
+          "source": "CRAG.pdf",
+          "page_number": 15,
+          "chunk_id": "CRAG_p15_c011"
+        },
+        {
+          "source": "CRAG.pdf",
+          "page_number": 2,
+          "chunk_id": "CRAG_p2_c007"
+        },
+        {
+          "source": "CRAG.pdf",
+          "page_number": 1,
+          "chunk_id": "CRAG_p1_c003"
+        }
+      ],
+      "latency_seconds": 1.931
+    },
+    "correctrag": {
+      "answer": "The external search query rewriter transforms the original inputs into keyword\u2011based queries (using ChatGPT) so they can be sent to a web\u2011search API, mimicking typical search\u2011engine usage and enabling CRAG to retrieve relevant documents.  \n\nSources: [1] CRAG.pdf, page\u202f6.",
+      "action": "CORRECT",
+      "rewritten_query": null,
+      "web_search_used": false,
+      "judge_called": false,
+      "judge_decision": null,
+      "judge_reason": null,
+      "internal_strip_count": 5,
+      "external_strip_count": 0,
+      "final_context_source": "internal",
+      "latency_seconds": 6.454
+    }
+  },
+  {
+    "id": "q04",
+    "category": "clearly_supported",
+    "question": "What evaluations and benchmark datasets were used in the CRAG paper to test performance?",
+    "plain_rag": {
+      "answer": "The paper evaluated CRAG on four benchmark datasets\u2014PopQA, Biography, Pub\u202fHealth, and Arc\u2011Challenge\u2014covering short\u2011form entity generation, long\u2011form generation, and closed\u2011set tasks. Performance was measured with metrics such as accuracy (e.g.,\u202f6.9% on PopQA, 2.4% on PubHealth) and FactScore (e.g.,\u202f5.0% on Biography).  \n\nSources: [1]\u202fCRAG.pdf, p.\u202f2; [4]\u202fCRAG.pdf, p.\u202f8.",
+      "retrieved_count": 5,
+      "citations": [
+        {
+          "source": "CRAG.pdf",
+          "page_number": 2,
+          "chunk_id": "CRAG_p2_c007"
+        },
+        {
+          "source": "CRAG.pdf",
+          "page_number": 10,
+          "chunk_id": "CRAG_p10_c008"
+        },
+        {
+          "source": "CRAG.pdf",
+          "page_number": 1,
+          "chunk_id": "CRAG_p1_c005"
+        },
+        {
+          "source": "CRAG.pdf",
+          "page_number": 8,
+          "chunk_id": "CRAG_p8_c003"
+        },
+        {
+          "source": "CRAG.pdf",
+          "page_number": 8,
+          "chunk_id": "CRAG_p8_c004"
+        }
+      ],
+      "latency_seconds": 2.293
+    },
+    "correctrag": {
+      "answer": "The CRAG paper evaluated its approach on four benchmark datasets\u2014PopQA, Biography, PubHealth, and Arc\u2011Challenge\u2014covering short\u2011form entity generation, long\u2011form generation, and closed\u2011set tasks.  \n\nSources: [2] Source: CRAG.pdf | Page: 2; [3] Source: CRAG.pdf | Page: 1; [5] Source: CRAG.pdf | Page: 8.",
+      "action": "CORRECT",
+      "rewritten_query": null,
+      "web_search_used": false,
+      "judge_called": false,
+      "judge_decision": null,
+      "judge_reason": null,
+      "internal_strip_count": 5,
+      "external_strip_count": 0,
+      "final_context_source": "internal",
+      "latency_seconds": 6.964
+    }
+  },
+  {
+    "id": "q05",
+    "category": "weak_or_incomplete",
+    "question": "What specific training loss function and hyperparameters were used to fine-tune the retrieval evaluator in the CRAG paper?",
+    "plain_rag": {
+      "answer": "I cannot answer this question based on the provided context.  \n\nSources: [1] CRAG.pdf, page 10; [2] CRAG.pdf, page 4; [3] CRAG.pdf, page 1; [4] CRAG.pdf, page 4; [5] CRAG.pdf, page 15.",
+      "retrieved_count": 5,
+      "citations": [
+        {
+          "source": "CRAG.pdf",
+          "page_number": 10,
+          "chunk_id": "CRAG_p10_c008"
+        },
+        {
+          "source": "CRAG.pdf",
+          "page_number": 4,
+          "chunk_id": "CRAG_p4_c002"
+        },
+        {
+          "source": "CRAG.pdf",
+          "page_number": 1,
+          "chunk_id": "CRAG_p1_c003"
+        },
+        {
+          "source": "CRAG.pdf",
+          "page_number": 4,
+          "chunk_id": "CRAG_p4_c003"
+        },
+        {
+          "source": "CRAG.pdf",
+          "page_number": 15,
+          "chunk_id": "CRAG_p15_c011"
+        }
+      ],
+      "latency_seconds": 1.875
+    },
+    "correctrag": {
+      "answer": "I cannot answer this question based on the provided context.",
+      "action": "CORRECT",
+      "rewritten_query": null,
+      "web_search_used": false,
+      "judge_called": false,
+      "judge_decision": null,
+      "judge_reason": null,
+      "internal_strip_count": 5,
+      "external_strip_count": 0,
+      "final_context_source": "internal",
+      "latency_seconds": 6.251
+    }
+  },
+  {
+    "id": "q06",
+    "category": "weak_or_incomplete",
+    "question": "What are the exact memory usage benchmarks in megabytes for running CRAG on mobile devices?",
+    "plain_rag": {
+      "answer": "I cannot answer this question based on the provided context.",
+      "retrieved_count": 5,
+      "citations": [
+        {
+          "source": "CRAG.pdf",
+          "page_number": 2,
+          "chunk_id": "CRAG_p2_c007"
+        },
+        {
+          "source": "CRAG.pdf",
+          "page_number": 10,
+          "chunk_id": "CRAG_p10_c008"
+        },
+        {
+          "source": "CRAG.pdf",
+          "page_number": 4,
+          "chunk_id": "CRAG_p4_c008"
+        },
+        {
+          "source": "CRAG.pdf",
+          "page_number": 8,
+          "chunk_id": "CRAG_p8_c003"
+        },
+        {
+          "source": "CRAG.pdf",
+          "page_number": 8,
+          "chunk_id": "CRAG_p8_c006"
+        }
+      ],
+      "latency_seconds": 1.641
+    },
+    "correctrag": {
+      "answer": "I cannot answer this question based on the provided context.",
+      "action": "INCORRECT",
+      "rewritten_query": "CRAG, memory usage benchmarks, mobile devices",
+      "web_search_used": true,
+      "judge_called": true,
+      "judge_decision": "INCORRECT",
+      "judge_reason": "The excerpts discuss CRAG's performance and model size but provide no memory usage benchmarks in megabytes for mobile devices.",
+      "internal_strip_count": 0,
+      "external_strip_count": 5,
+      "final_context_source": "external",
+      "latency_seconds": 10.965
+    }
+  },
+  {
+    "id": "q07",
+    "category": "weak_or_incomplete",
+    "question": "How does CRAG handle multimodal document inputs such as images and audio tables?",
+    "plain_rag": {
+      "answer": "I cannot answer this question based on the provided context. \n\nSources:",
+      "retrieved_count": 5,
+      "citations": [
+        {
+          "source": "CRAG.pdf",
+          "page_number": 1,
+          "chunk_id": "CRAG_p1_c005"
+        },
+        {
+          "source": "CRAG.pdf",
+          "page_number": 10,
+          "chunk_id": "CRAG_p10_c008"
+        },
+        {
+          "source": "CRAG.pdf",
+          "page_number": 2,
+          "chunk_id": "CRAG_p2_c007"
+        },
+        {
+          "source": "CRAG.pdf",
+          "page_number": 1,
+          "chunk_id": "CRAG_p1_c003"
+        },
+        {
+          "source": "CRAG.pdf",
+          "page_number": 2,
+          "chunk_id": "CRAG_p2_c006"
+        }
+      ],
+      "latency_seconds": 2.03
+    },
+    "correctrag": {
+      "answer": "I cannot answer this question based on the provided context.",
+      "action": "CORRECT",
+      "rewritten_query": null,
+      "web_search_used": false,
+      "judge_called": false,
+      "judge_decision": null,
+      "judge_reason": null,
+      "internal_strip_count": 5,
+      "external_strip_count": 0,
+      "final_context_source": "internal",
+      "latency_seconds": 6.039
+    }
+  },
+  {
+    "id": "q08",
+    "category": "outside_document",
+    "question": "Who won the ICC Men's Cricket World Cup in 2023 and where was the final played?",
+    "plain_rag": {
+      "answer": "I cannot answer this question based on the provided context.  \n\nSources: [1] CRAG.pdf, page 14; [2] CRAG.pdf, page 12; [3] CRAG.pdf, page 11; [4] CRAG.pdf, page 12; [5] CRAG.pdf, page 14.",
+      "retrieved_count": 5,
+      "citations": [
+        {
+          "source": "CRAG.pdf",
+          "page_number": 14,
+          "chunk_id": "CRAG_p14_c009"
+        },
+        {
+          "source": "CRAG.pdf",
+          "page_number": 12,
+          "chunk_id": "CRAG_p12_c002"
+        },
+        {
+          "source": "CRAG.pdf",
+          "page_number": 11,
+          "chunk_id": "CRAG_p11_c014"
+        },
+        {
+          "source": "CRAG.pdf",
+          "page_number": 12,
+          "chunk_id": "CRAG_p12_c001"
+        },
+        {
+          "source": "CRAG.pdf",
+          "page_number": 14,
+          "chunk_id": "CRAG_p14_c001"
+        }
+      ],
+      "latency_seconds": 2.406
+    },
+    "correctrag": {
+      "answer": "Australia won the ICC\u202fMen\u2019s Cricket World Cup 2023, and the final was played at the Narendra Modi Stadium in Ahmedabad.  \n\nSources: [1], [3]",
+      "action": "INCORRECT",
+      "rewritten_query": "Who won the ICC Men's Cricket World Cup in 2023 and where was the final played?",
+      "web_search_used": true,
+      "judge_called": true,
+      "judge_decision": "INCORRECT",
+      "judge_reason": "The retrieved chunks discuss tennis, books, and NLP papers and contain no information about the 2023 ICC Men's Cricket World Cup or its final venue.",
+      "internal_strip_count": 0,
+      "external_strip_count": 5,
+      "final_context_source": "external",
+      "latency_seconds": 21.608
+    }
+  },
+  {
+    "id": "q09",
+    "category": "outside_document",
+    "question": "What is Python 3.12's new syntax for type parameter lists and generic classes (PEP 695)?",
+    "plain_rag": {
+      "answer": "I cannot answer this question based on the provided context.",
+      "retrieved_count": 5,
+      "citations": [
+        {
+          "source": "CRAG.pdf",
+          "page_number": 11,
+          "chunk_id": "CRAG_p11_c015"
+        },
+        {
+          "source": "CRAG.pdf",
+          "page_number": 13,
+          "chunk_id": "CRAG_p13_c001"
+        },
+        {
+          "source": "CRAG.pdf",
+          "page_number": 12,
+          "chunk_id": "CRAG_p12_c006"
+        },
+        {
+          "source": "CRAG.pdf",
+          "page_number": 11,
+          "chunk_id": "CRAG_p11_c014"
+        },
+        {
+          "source": "CRAG.pdf",
+          "page_number": 12,
+          "chunk_id": "CRAG_p12_c003"
+        }
+      ],
+      "latency_seconds": 6.801
+    },
+    "correctrag": {
+      "answer": "I cannot answer this question based on the provided context.",
+      "action": "INCORRECT",
+      "rewritten_query": "Python 3.12, PEP 695, syntax",
+      "web_search_used": true,
+      "judge_called": true,
+      "judge_decision": "INCORRECT",
+      "judge_reason": "The retrieved chunks discuss NLP conference papers and language models, with no mention of Python 3.12, PEP\u00a0695, or type\u2011parameter syntax.",
+      "internal_strip_count": 0,
+      "external_strip_count": 5,
+      "final_context_source": "external",
+      "latency_seconds": 19.047
+    }
+  },
+  {
+    "id": "q10",
+    "category": "outside_document",
+    "question": "What is the capital city of Australia and what is its approximate population?",
+    "plain_rag": {
+      "answer": "I cannot answer this question based on the provided context.  \n\nSources: None.",
+      "retrieved_count": 5,
+      "citations": [
+        {
+          "source": "CRAG.pdf",
+          "page_number": 14,
+          "chunk_id": "CRAG_p14_c009"
+        },
+        {
+          "source": "CRAG.pdf",
+          "page_number": 14,
+          "chunk_id": "CRAG_p14_c005"
+        },
+        {
+          "source": "CRAG.pdf",
+          "page_number": 14,
+          "chunk_id": "CRAG_p14_c001"
+        },
+        {
+          "source": "CRAG.pdf",
+          "page_number": 14,
+          "chunk_id": "CRAG_p14_c008"
+        },
+        {
+          "source": "CRAG.pdf",
+          "page_number": 14,
+          "chunk_id": "CRAG_p14_c007"
+        }
+      ],
+      "latency_seconds": 7.148
+    },
+    "correctrag": {
+      "answer": "Canberra is Australia\u2019s capital city, with an estimated population of about\u202f470\u202f000 people.  \nSources: [4]\u202fCanberra\u202fpopulation\u202f473,900\u202f(30\u202fJune\u202f2024).",
+      "action": "INCORRECT",
+      "rewritten_query": "Australia, capital city, population",
+      "web_search_used": true,
+      "judge_called": true,
+      "judge_decision": "INCORRECT",
+      "judge_reason": "None of the retrieved chunks mention Australia's capital city or its population.",
+      "internal_strip_count": 0,
+      "external_strip_count": 5,
+      "final_context_source": "external",
+      "latency_seconds": 18.394
+    }
+  },
+  {
+    "id": "q11",
+    "category": "ambiguous_or_tricky",
+    "question": "What does CRAG stand for, what are its three actions, and how does it compare to GraphRAG?",
+    "plain_rag": {
+      "answer": "I cannot answer this question based on the provided context.",
+      "retrieved_count": 5,
+      "citations": [
+        {
+          "source": "CRAG.pdf",
+          "page_number": 10,
+          "chunk_id": "CRAG_p10_c008"
+        },
+        {
+          "source": "CRAG.pdf",
+          "page_number": 2,
+          "chunk_id": "CRAG_p2_c009"
+        },
+        {
+          "source": "CRAG.pdf",
+          "page_number": 1,
+          "chunk_id": "CRAG_p1_c005"
+        },
+        {
+          "source": "CRAG.pdf",
+          "page_number": 2,
+          "chunk_id": "CRAG_p2_c007"
+        },
+        {
+          "source": "CRAG.pdf",
+          "page_number": 1,
+          "chunk_id": "CRAG_p1_c003"
+        }
+      ],
+      "latency_seconds": 5.774
+    },
+    "correctrag": {
+      "answer": "I cannot answer this question based on the provided context.",
+      "action": "CORRECT",
+      "rewritten_query": null,
+      "web_search_used": false,
+      "judge_called": false,
+      "judge_decision": null,
+      "judge_reason": null,
+      "internal_strip_count": 5,
+      "external_strip_count": 0,
+      "final_context_source": "internal",
+      "latency_seconds": 6.347
+    }
+  },
+  {
+    "id": "q12",
+    "category": "ambiguous_or_tricky",
+    "question": "Is Self-RAG the exact same framework as Corrective RAG (CRAG)?",
+    "plain_rag": {
+      "answer": "No. Self\u2011RAG is a distinct framework that can incorporate CRAG (as done in the \u201cSelf\u2011CRAG\u201d variant), and it requires additional instruction tuning that CRAG itself does not need.  \n\nSources: [2]\u202fCRAG.pdf,\u202fpage\u202f8; [5]\u202fCRAG.pdf,\u202fpage\u202f15.",
+      "retrieved_count": 5,
+      "citations": [
+        {
+          "source": "CRAG.pdf",
+          "page_number": 10,
+          "chunk_id": "CRAG_p10_c008"
+        },
+        {
+          "source": "CRAG.pdf",
+          "page_number": 8,
+          "chunk_id": "CRAG_p8_c006"
+        },
+        {
+          "source": "CRAG.pdf",
+          "page_number": 1,
+          "chunk_id": "CRAG_p1_c003"
+        },
+        {
+          "source": "CRAG.pdf",
+          "page_number": 2,
+          "chunk_id": "CRAG_p2_c009"
+        },
+        {
+          "source": "CRAG.pdf",
+          "page_number": 15,
+          "chunk_id": "CRAG_p15_c013"
+        }
+      ],
+      "latency_seconds": 3.112
+    },
+    "correctrag": {
+      "answer": "No. Self\u2011RAG is a separate framework; the CRAG method is inserted into Self\u2011RAG to create a combined version called Self\u2011CRAG.  \n\nSources: [4] Source: CRAG.pdf, page 15.",
+      "action": "CORRECT",
+      "rewritten_query": null,
+      "web_search_used": false,
+      "judge_called": false,
+      "judge_decision": null,
+      "judge_reason": null,
+      "internal_strip_count": 5,
+      "external_strip_count": 0,
+      "final_context_source": "internal",
+      "latency_seconds": 6.349
+    }
+  }
+]

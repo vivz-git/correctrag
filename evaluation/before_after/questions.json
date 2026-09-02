@@ -1,0 +1,62 @@
+[
+  {
+    "id": "q01",
+    "category": "clearly_supported",
+    "question": "What are the three action triggers in Corrective RAG and when are they executed?"
+  },
+  {
+    "id": "q02",
+    "category": "clearly_supported",
+    "question": "How does the knowledge refinement method in CRAG process retrieved documents?"
+  },
+  {
+    "id": "q03",
+    "category": "clearly_supported",
+    "question": "What role does the external search query rewriter play in CRAG?"
+  },
+  {
+    "id": "q04",
+    "category": "clearly_supported",
+    "question": "What evaluations and benchmark datasets were used in the CRAG paper to test performance?"
+  },
+  {
+    "id": "q05",
+    "category": "weak_or_incomplete",
+    "question": "What specific training loss function and hyperparameters were used to fine-tune the retrieval evaluator in the CRAG paper?"
+  },
+  {
+    "id": "q06",
+    "category": "weak_or_incomplete",
+    "question": "What are the exact memory usage benchmarks in megabytes for running CRAG on mobile devices?"
+  },
+  {
+    "id": "q07",
+    "category": "weak_or_incomplete",
+    "question": "How does CRAG handle multimodal document inputs such as images and audio tables?"
+  },
+  {
+    "id": "q08",
+    "category": "outside_document",
+    "question": "Who won the ICC Men's Cricket World Cup in 2023 and where was the final played?"
+  },
+  {
+    "id": "q09",
+    "category": "outside_document",
+    "question": "What is Python 3.12's new syntax for type parameter lists and generic classes (PEP 695)?"
+  },
+  {
+    "id": "q10",
+    "category": "outside_document",
+    "question": "What is the capital city of Australia and what is its approximate population?"
+  },
+  {
+    "id": "q11",
+    "category": "ambiguous_or_tricky",
+    "question": "What does CRAG stand for, what are its three actions, and how does it compare to GraphRAG?"
+  },
+  {
+    "id": "q12",
+    "category": "ambiguous_or_tricky",
+    "question": "Is Self-RAG the exact same framework as Corrective RAG (CRAG)?"
+  }
+]

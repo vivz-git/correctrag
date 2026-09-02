@@ -35,6 +35,7 @@ const resultsContainer = document.getElementById('resultsContainer');
 
 // Result Elements
 const actionBadge = document.getElementById('actionBadge');
+const sourceSummaryBadge = document.getElementById('sourceSummaryBadge');
 const answerText = document.getElementById('answerText');
 const internalSourcesList = document.getElementById('internalSourcesList');
 const webSourcesList = document.getElementById('webSourcesList');
@@ -163,9 +164,12 @@ function renderInternalSources(chunks, strips) {
         ? (chunk.score > 0 ? '+' : '') + chunk.score.toFixed(4)
         : '';
 
+    const rawSource = chunk.source || "CRAG.pdf";
+    const sourceName = rawSource.split('/').pop().split('\\').pop();
+
     item.innerHTML =
       '<div class="source-header">' +
-        '<span class="source-title">' + escapeHtml(chunk.source) + ' \u00B7 ' + pageStr + '</span>' +
+        '<span class="source-title">' + escapeHtml(sourceName) + ' \u00B7 ' + pageStr + '</span>' +
         (scoreStr
           ? '<div class="source-meta"><span class="score-tag">' + scoreStr + '</span></div>'
           : '') +
@@ -286,6 +290,13 @@ async function handleQuerySubmit(e) {
     const action = data.action || 'CORRECT';
     actionBadge.textContent = action;
     actionBadge.className = 'action-badge';
+    
+    if (data.execution_trace && data.execution_trace.judge_reason) {
+      actionBadge.title = data.execution_trace.judge_reason;
+    } else {
+      actionBadge.removeAttribute('title');
+    }
+
     if (action === 'CORRECT') {
       actionBadge.classList.add('action-correct');
     } else if (action === 'AMBIGUOUS') {
@@ -293,6 +304,28 @@ async function handleQuerySubmit(e) {
     } else {
       actionBadge.classList.add('action-incorrect');
     }
+
+    // 1.5 Update Source Summary Badge
+    let sourceSummary = "No Source";
+    const hasInternal = data.retrieved_chunks && data.retrieved_chunks.length > 0;
+    const hasWeb = data.web_results && data.web_results.length > 0;
+
+    if (action === 'CORRECT' || (hasInternal && !hasWeb)) {
+       const chunk = hasInternal ? data.retrieved_chunks[0] : null;
+       if (chunk) {
+           const rawSource = chunk.source || "CRAG.pdf";
+           const sourceName = rawSource.split('/').pop().split('\\').pop();
+           const pageNum = chunk.page_number ? ` · Page ${chunk.page_number}` : "";
+           sourceSummary = `${sourceName}${pageNum}`;
+       } else {
+           sourceSummary = "CRAG.pdf";
+       }
+    } else if (action === 'INCORRECT' || (!hasInternal && hasWeb)) {
+       sourceSummary = "Tavily Web";
+    } else if (action === 'AMBIGUOUS' || (hasInternal && hasWeb)) {
+       sourceSummary = "CRAG.pdf + Tavily Web";
+    }
+    sourceSummaryBadge.textContent = sourceSummary;
 
     // 2. Render Answer
     answerText.innerHTML = formatAnswerContent(data.answer);

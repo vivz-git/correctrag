@@ -54,15 +54,21 @@ class EmbeddingModel:
         if not text:
             return [0.0] * self.dimension
 
-        try:
-            client = self._get_client()
-            response = client.models.embed_content(
-                model=self.model_name,
-                contents=text,
-            )
-            return list(response.embeddings[0].values)
-        except Exception as exc:
-            raise RuntimeError(f"Failed to compute query embedding: {exc}") from exc
+        import time
+        retries = 6
+        for attempt in range(retries):
+            try:
+                client = self._get_client()
+                response = client.models.embed_content(
+                    model=self.model_name,
+                    contents=text,
+                )
+                return list(response.embeddings[0].values)
+            except Exception as exc:
+                if ("429" in str(exc) or "RESOURCE_EXHAUSTED" in str(exc)) and attempt < retries - 1:
+                    time.sleep(3.0 * (attempt + 1))
+                else:
+                    raise RuntimeError(f"Failed to compute query embedding: {exc}") from exc
 
     def embed_documents(self, texts: list[str]) -> list[list[float]]:
         """Compute embeddings for a list of document texts.

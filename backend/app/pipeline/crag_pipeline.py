@@ -120,6 +120,21 @@ class ExecutionTrace(BaseModel):
             "None when no documents were retrieved (empty vector store)."
         ),
     )
+    similarity_pre_filter_decision: Optional[str] = Field(
+        default=None, description="Action determined by cheap embedding similarity pre-filter"
+    )
+    judge_called: bool = Field(
+        default=False, description="Whether the LLM judge was called for borderline evaluation"
+    )
+    judge_decision: Optional[str] = Field(
+        default=None, description="LLM judge final decision"
+    )
+    judge_reason: Optional[str] = Field(
+        default=None, description="LLM judge reasoning"
+    )
+    judge_latency: Optional[float] = Field(
+        default=None, description="Latency of LLM judge call in seconds"
+    )
     web_search_used: bool = Field(
         ...,
         description="True when external web search was executed (INCORRECT or AMBIGUOUS)",
@@ -433,16 +448,22 @@ class CRAGPipeline:
         scores: list[float] = self.evaluator.score_batch(pairs)
 
         # ── Step 3: Action routing ────────────────────────────────────────────
-        action: Action = self.router.route(scores)
+        raw_decision = self.router.route(clean_query, chunks, scores)
+        if isinstance(raw_decision, str):
+            action: Action = raw_decision  # type: ignore
+            decision: Optional[RoutingDecision] = None
+        else:
+            decision = raw_decision
+            action = decision.action
 
         # ── Step 4: Branch on action ──────────────────────────────────────────
         if action == "CORRECT":
-            return self._run_correct(clean_query, chunks, scores)
+            return self._run_correct(clean_query, chunks, scores, decision=decision)
         elif action == "INCORRECT":
-            return self._run_incorrect(clean_query, chunks, scores)
+            return self._run_incorrect(clean_query, chunks, scores, decision=decision)
         else:
             # AMBIGUOUS
-            return self._run_ambiguous(clean_query, chunks, scores)
+            return self._run_ambiguous(clean_query, chunks, scores, decision=decision)
 
     # ── Private branch methods ────────────────────────────────────────────────
 

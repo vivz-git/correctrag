@@ -81,9 +81,18 @@ docker compose up --build
 This starts the backend API on port 8000 and the browser UI on port 3000.
 The resulting container is heavily optimized (linux/arm64 is ~208MB) and offers instant `/health` readiness.
 
+## Before vs CorrectRAG Evaluation
+
+In a controlled 12-question evaluation across in-domain, weak-evidence, out-of-domain, and tricky queries using `openai/gpt-oss-120b`:
+- **Groundedness**: Both systems maintained 100% grounded answers (12/12) with 0 unsupported claims or hallucinations.
+- **Web Fallback Utility**: On out-of-domain questions where Plain RAG was forced to refuse (e.g., 2023 World Cup winner, Australian capital), CorrectRAG's LLM judge accurately classified internal context as `INCORRECT`, triggering query rewriting and Tavily web search to successfully answer the queries.
+- **Cost Efficiency**: The Stage 2 LLM Judge was called only on borderline or out-of-domain queries (4 / 12 queries), bypassing LLM overhead completely for clear in-domain matches.
+
+See [`evaluation/before_after/summary.md`](evaluation/before_after/summary.md) for full question-by-question results.
+
 ## Test Coverage
 
-The project is backed by a robust, 303-test suite covering everything from PDF ingestion and vector similarity math to LLM parsing and pipeline orchestrations.
+The project is backed by a robust, 294-test suite covering everything from PDF ingestion and vector similarity math to LLM parsing and pipeline orchestrations.
 
 To run the tests locally:
 ```bash
