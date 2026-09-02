@@ -17,7 +17,9 @@ const API_BASE_URL =
   new URLSearchParams(window.location.search).get('api_url') ||
   (window.location.hostname === 'localhost' && window.location.port === '8000'
     ? window.location.origin
-    : 'http://localhost:8000');
+    : (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1'
+        ? 'http://localhost:8000'
+        : 'https://13.235.51.127.sslip.io'));
 
 // ── DOM Elements ───────────────────────────────────────────────────────────
 
