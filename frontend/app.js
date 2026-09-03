@@ -35,6 +35,17 @@ const errorTitle = document.getElementById('errorTitle');
 const errorMessage = document.getElementById('errorMessage');
 const resultsContainer = document.getElementById('resultsContainer');
 
+// Document Attachment Elements
+const pdfFileInput = document.getElementById('pdfFileInput');
+const attachBtn = document.getElementById('attachBtn');
+const docStatusBadge = document.getElementById('docStatusBadge');
+const indexBtn = document.getElementById('indexBtn');
+const indexSpinner = document.getElementById('indexSpinner');
+const indexBtnText = document.getElementById('indexBtnText');
+const selectedFilesContainer = document.getElementById('selectedFilesContainer');
+const indexSuccessBanner = document.getElementById('indexSuccessBanner');
+const indexSuccessMessage = document.getElementById('indexSuccessMessage');
+
 // Result Elements
 const actionBadge = document.getElementById('actionBadge');
 const sourceSummaryBadge = document.getElementById('sourceSummaryBadge');
@@ -315,17 +326,17 @@ async function handleQuerySubmit(e) {
     if (action === 'CORRECT' || (hasInternal && !hasWeb)) {
        const chunk = hasInternal ? data.retrieved_chunks[0] : null;
        if (chunk) {
-           const rawSource = chunk.source || "CRAG.pdf";
+           const rawSource = chunk.source || "Document";
            const sourceName = rawSource.split('/').pop().split('\\').pop();
            const pageNum = chunk.page_number ? ` · Page ${chunk.page_number}` : "";
            sourceSummary = `${sourceName}${pageNum}`;
        } else {
-           sourceSummary = "CRAG.pdf";
+           sourceSummary = "Document";
        }
     } else if (action === 'INCORRECT' || (!hasInternal && hasWeb)) {
        sourceSummary = "Tavily Web";
     } else if (action === 'AMBIGUOUS' || (hasInternal && hasWeb)) {
-       sourceSummary = "CRAG.pdf + Tavily Web";
+       sourceSummary = "Document + Tavily Web";
     }
     sourceSummaryBadge.textContent = sourceSummary;
 
@@ -360,6 +371,199 @@ async function handleQuerySubmit(e) {
 }
 
 
+// ── Document Attachment & Indexing ──────────────────────────────────────────
+
+const MAX_PDF_COUNT = 5;
+const MAX_PDF_SIZE_BYTES = 25 * 1024 * 1024; // 25 MB
+
+// selectedFiles holds { file, error } entries; a chip with `error` set is
+// shown but excluded from the upload payload.
+let selectedFiles = [];
+
+function formatFileSize(bytes) {
+  if (bytes >= 1024 * 1024) {
+    return (bytes / (1024 * 1024)).toFixed(2) + ' MB';
+  }
+  return (bytes / 1024).toFixed(1) + ' KB';
+}
+
+function isPdfFile(file) {
+  const nameOk = file.name.toLowerCase().endsWith('.pdf');
+  const typeOk = !file.type || file.type === 'application/pdf';
+  return nameOk && typeOk;
+}
+
+function validateSelection(files) {
+  // Re-validates the whole batch so limits (count, size, type) are
+  // enforced consistently regardless of how files were added/removed.
+  const results = [];
+
+  files.forEach(function (file) {
+    let error = null;
+    if (!isPdfFile(file)) {
+      error = 'Not a PDF file';
+    } else if (file.size > MAX_PDF_SIZE_BYTES) {
+      error = 'Exceeds 25 MB limit';
+    } else if (file.size === 0) {
+      error = 'File is empty';
+    }
+    results.push({ file: file, error: error });
+  });
+
+  if (results.length > MAX_PDF_COUNT) {
+    results.forEach(function (entry, idx) {
+      if (idx >= MAX_PDF_COUNT && !entry.error) {
+        entry.error = 'Exceeds 5-file limit';
+      }
+    });
+  }
+
+  return results;
+}
+
+function renderSelectedFiles() {
+  selectedFilesContainer.innerHTML = '';
+
+  if (selectedFiles.length === 0) {
+    selectedFilesContainer.classList.add('hidden');
+    indexBtn.classList.add('hidden');
+    return;
+  }
+
+  selectedFilesContainer.classList.remove('hidden');
+
+  const hasValidFiles = selectedFiles.some(function (entry) { return !entry.error; });
+  indexBtn.classList.toggle('hidden', !hasValidFiles);
+
+  selectedFiles.forEach(function (entry, idx) {
+    const chip = document.createElement('div');
+    chip.className = 'file-chip' + (entry.error ? ' file-chip-error' : '');
+    chip.setAttribute('role', 'listitem');
+
+    chip.innerHTML =
+      '<span class="file-chip-name" title="' + escapeHtml(entry.file.name) + (entry.error ? ' — ' + escapeHtml(entry.error) : '') + '">' +
+        escapeHtml(entry.file.name) +
+      '</span>' +
+      '<span class="file-chip-size">' + (entry.error ? entry.error : formatFileSize(entry.file.size)) + '</span>';
+
+    const removeBtn = document.createElement('button');
+    removeBtn.type = 'button';
+    removeBtn.className = 'file-chip-remove';
+    removeBtn.setAttribute('aria-label', 'Remove ' + entry.file.name);
+    removeBtn.textContent = '×';
+    removeBtn.addEventListener('click', function () {
+      selectedFiles.splice(idx, 1);
+      renderSelectedFiles();
+    });
+    chip.appendChild(removeBtn);
+
+    selectedFilesContainer.appendChild(chip);
+  });
+}
+
+function addFilesToSelection(fileList) {
+  indexSuccessBanner.classList.add('hidden');
+  const incoming = Array.from(fileList);
+  const combined = selectedFiles.map(function (entry) { return entry.file; }).concat(incoming);
+  selectedFiles = validateSelection(combined);
+  renderSelectedFiles();
+}
+
+async function refreshDocumentInventory() {
+  try {
+    const res = await fetch(`${API_BASE_URL}/documents`, {
+      method: 'GET',
+      headers: { Accept: 'application/json' },
+    });
+    if (!res.ok) {
+      docStatusBadge.textContent = 'Corpus status unavailable';
+      return;
+    }
+    const data = await res.json();
+    const docCount = Object.keys(data.documents || {}).length;
+    const totalChunks = data.total_chunks || 0;
+    docStatusBadge.textContent =
+      docCount + ' document(s) indexed · ' + totalChunks + ' chunk(s)';
+  } catch {
+    docStatusBadge.textContent = 'Corpus status unavailable';
+  }
+}
+
+function setIndexing(loading) {
+  indexBtn.disabled = loading;
+  attachBtn.disabled = loading;
+  if (loading) {
+    indexSpinner.classList.remove('hidden');
+    indexBtnText.textContent = 'Indexing…';
+  } else {
+    indexSpinner.classList.add('hidden');
+    indexBtnText.textContent = 'Index Files';
+  }
+}
+
+async function handleIndexFiles() {
+  const validFiles = selectedFiles.filter(function (entry) { return !entry.error; }).map(function (e) { return e.file; });
+  if (validFiles.length === 0) return;
+
+  setIndexing(true);
+  hideError();
+  indexSuccessBanner.classList.add('hidden');
+
+  const formData = new FormData();
+  validFiles.forEach(function (file) {
+    formData.append('files', file, file.name);
+  });
+
+  try {
+    const response = await fetch(`${API_BASE_URL}/documents`, {
+      method: 'POST',
+      headers: { Accept: 'application/json' },
+      body: formData,
+    });
+
+    const data = await response.json().catch(function () { return {}; });
+
+    if (!response.ok) {
+      showError(
+        'Indexing Failed (HTTP ' + response.status + ')',
+        data.detail || 'Failed to index the selected PDF(s).'
+      );
+      return;
+    }
+
+    // Keep only files that failed client-side validation; drop the rest.
+    selectedFiles = selectedFiles.filter(function (entry) { return entry.error; });
+    renderSelectedFiles();
+
+    indexSuccessMessage.textContent = data.message || 'Documents indexed successfully.';
+    indexSuccessBanner.classList.remove('hidden');
+
+    await refreshDocumentInventory();
+  } catch (err) {
+    showError(
+      'Network Error',
+      'Unable to reach the CorrectRAG API at ' + API_BASE_URL + ' to index documents.'
+    );
+  } finally {
+    setIndexing(false);
+  }
+}
+
+attachBtn.addEventListener('click', function () {
+  pdfFileInput.click();
+});
+
+pdfFileInput.addEventListener('change', function () {
+  if (pdfFileInput.files && pdfFileInput.files.length > 0) {
+    addFilesToSelection(pdfFileInput.files);
+  }
+  // Reset so selecting the same file again still fires 'change'.
+  pdfFileInput.value = '';
+});
+
+indexBtn.addEventListener('click', handleIndexFiles);
+
+
 // ── Event Listeners ────────────────────────────────────────────────────────
 
 queryForm.addEventListener('submit', handleQuerySubmit);
@@ -384,7 +588,8 @@ document.querySelectorAll('.sample-chip').forEach(function (chip) {
   });
 });
 
-// Check health on page load
+// Check health and document inventory on page load
 document.addEventListener('DOMContentLoaded', function () {
   checkHealth();
+  refreshDocumentInventory();
 });

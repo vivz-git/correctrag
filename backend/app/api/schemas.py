@@ -147,3 +147,27 @@ class QueryResponse(BaseModel):
     execution_trace: TraceSchema = Field(
         ..., description="Operational execution metadata"
     )
+
+
+class DocumentUploadResponse(BaseModel):
+    """API response schema for document upload and indexing."""
+
+    status: str = Field(default="ok", description="Status of the upload operation")
+    message: str = Field(..., description="Human-readable status message")
+    indexed_documents: dict[str, int] = Field(
+        default_factory=dict,
+        description="Map of document filename to indexed chunk count",
+    )
+    total_chunks: int = Field(..., description="Total chunks currently in vector store")
+    added_chunks: int = Field(..., description="Number of new chunks added in this upload")
+
+
+class DocumentListResponse(BaseModel):
+    """API response schema for listing currently indexed documents."""
+
+    status: str = Field(default="ok", description="Status of the inventory query")
+    documents: dict[str, int] = Field(
+        default_factory=dict,
+        description="Map of document filename to indexed chunk count",
+    )
+    total_chunks: int = Field(..., description="Total chunks currently in vector store")

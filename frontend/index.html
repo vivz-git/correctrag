@@ -35,6 +35,46 @@
 
       <!-- Query Input -->
       <section class="query-section" aria-labelledby="queryLabel">
+        <!-- Document Attachment & Knowledge Base Inventory -->
+        <div class="doc-attachment-bar" aria-label="Document Knowledge Base">
+          <div class="doc-bar-left">
+            <input
+              type="file"
+              id="pdfFileInput"
+              accept=".pdf,application/pdf"
+              multiple
+              class="sr-only"
+              aria-label="Upload PDF documents"
+            />
+            <button type="button" id="attachBtn" class="btn btn-secondary btn-sm">
+              <svg viewBox="0 0 16 16" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true">
+                <path d="M14 8.5V11a3 3 0 01-3 3H5a3 3 0 01-3-3V5a3 3 0 013-3h5.5a2.5 2.5 0 012.5 2.5V8"/>
+                <path d="M10 2v3a1 1 0 001 1h3"/>
+                <path d="M6 8h4M6 10h3"/>
+              </svg>
+              <span>Attach PDFs</span>
+            </button>
+            <span id="docStatusBadge" class="doc-status-badge" title="Indexed document inventory">Loading corpus…</span>
+          </div>
+          <div class="doc-bar-right">
+            <button type="button" id="indexBtn" class="btn btn-primary btn-sm hidden">
+              <span id="indexSpinner" class="spinner spinner-sm hidden" aria-hidden="true"></span>
+              <span id="indexBtnText">Index Files</span>
+            </button>
+          </div>
+        </div>
+
+        <!-- Selected Files Chips List -->
+        <div id="selectedFilesContainer" class="selected-files-list hidden" role="list" aria-label="Selected PDF files"></div>
+
+        <!-- Index Success Banner -->
+        <div id="indexSuccessBanner" class="index-success-banner hidden" role="status" aria-live="polite">
+          <svg viewBox="0 0 16 16" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true">
+            <path d="M3 8.5l3.5 3.5 6.5-7"/>
+          </svg>
+          <span id="indexSuccessMessage"></span>
+        </div>
+
         <form id="queryForm" class="query-form" novalidate>
           <label for="queryInput" id="queryLabel" class="input-label">Query the document store</label>
           <div class="textarea-wrapper">

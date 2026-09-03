@@ -3,19 +3,31 @@ HTTP API routes for CorrectRAG.
 """
 
 import os
+import tempfile
 from functools import lru_cache
 from pathlib import Path
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, File, HTTPException, UploadFile, status
 
 from app.api.schemas import (
     ChunkSource,
+    DocumentListResponse,
+    DocumentUploadResponse,
     HealthResponse,
     QueryRequest,
     QueryResponse,
     StripSource,
     TraceSchema,
     WebSource,
+)
+from app.ingestion.pdf_loader import (
+    MAX_PDF_COUNT,
+    MAX_PDF_SIZE_BYTES,
+    EmptyPDFError,
+    InvalidPDFError,
+    PDFLimitExceededError,
+    PDFSizeLimitExceededError,
+    load_multiple_pdfs,
 )
 from app.evaluation.action_router import ActionRouter
 from app.evaluation.knowledge_refiner import KnowledgeRefiner
@@ -204,3 +216,105 @@ def query(
             final_context_source=result.trace.final_context_source,
         ),
     )
+
+
+@router.get("/documents", response_model=DocumentListResponse, tags=["Documents"])
+def get_documents(
+    pipeline: CRAGPipeline = Depends(get_crag_pipeline),
+) -> DocumentListResponse:
+    """List currently indexed documents and their chunk counts."""
+    vector_store = pipeline.retriever.vector_store
+    doc_inventory = vector_store.get_indexed_documents()
+    total_chunks = vector_store.count()
+    return DocumentListResponse(
+        status="ok",
+        documents=doc_inventory,
+        total_chunks=total_chunks,
+    )
+
+
+@router.post("/documents", response_model=DocumentUploadResponse, tags=["Documents"])
+async def upload_documents(
+    files: list[UploadFile] = File(...),
+    pipeline: CRAGPipeline = Depends(get_crag_pipeline),
+) -> DocumentUploadResponse:
+    """Upload and index up to 5 PDF documents into the vector store.
+
+    Validates file count, .pdf extensions, and <= 25 MB per file limits.
+    Avoids loading oversized files completely into memory.
+    Embeds with Jina passage embeddings and appends to the vector store.
+    """
+    if not files:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="No files provided for upload.",
+        )
+
+    if len(files) > MAX_PDF_COUNT:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Cannot upload {len(files)} PDFs. Maximum allowed is {MAX_PDF_COUNT}.",
+        )
+
+    # Validate filenames and extensions before disk writes
+    for upload in files:
+        fname = upload.filename or ""
+        if not fname.lower().endswith(".pdf"):
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=f"Only PDF files are supported. Invalid file: '{fname}'.",
+            )
+
+    chunk_read_size = 1024 * 1024  # 1 MB chunk streaming to avoid memory bloat
+    with tempfile.TemporaryDirectory() as temp_dir:
+        temp_dir_path = Path(temp_dir)
+        saved_paths: list[Path] = []
+
+        for upload in files:
+            safe_name = Path(upload.filename or "uploaded.pdf").name
+            target_path = temp_dir_path / safe_name
+
+            total_bytes = 0
+            with open(target_path, "wb") as f_out:
+                while chunk := await upload.read(chunk_read_size):
+                    total_bytes += len(chunk)
+                    if total_bytes > MAX_PDF_SIZE_BYTES:
+                        raise HTTPException(
+                            status_code=status.HTTP_400_BAD_REQUEST,
+                            detail=f"File '{upload.filename}' exceeds maximum allowed size of 25 MB.",
+                        )
+                    f_out.write(chunk)
+
+            if total_bytes == 0:
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail=f"File '{upload.filename}' is empty (0 bytes).",
+                )
+
+            saved_paths.append(target_path)
+
+        try:
+            new_chunks = load_multiple_pdfs(saved_paths, chunk_size=500, chunk_overlap=100)
+        except (PDFLimitExceededError, PDFSizeLimitExceededError, InvalidPDFError, EmptyPDFError) as exc:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=str(exc),
+            ) from exc
+        except Exception as exc:
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail=f"Failed to process uploaded PDFs: {exc}",
+            ) from exc
+
+        vector_store = pipeline.retriever.vector_store
+        added = vector_store.add_chunks(new_chunks)
+        doc_inventory = vector_store.get_indexed_documents()
+        total_chunks = vector_store.count()
+
+        return DocumentUploadResponse(
+            status="ok",
+            message=f"Successfully indexed {added} chunk(s) across {len(files)} document(s).",
+            indexed_documents=doc_inventory,
+            total_chunks=total_chunks,
+            added_chunks=added,
+        )
