@@ -16,6 +16,7 @@ from contextlib import asynccontextmanager
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
+from app.api.middleware import RateLimitMiddleware, TimeoutMiddleware
 from app.api.routes import router as api_router
 
 
@@ -77,6 +78,13 @@ def create_app() -> FastAPI:
         allow_origins = [origin.strip() for origin in cors_origins_env.split(",")]
     else:
         allow_origins = ["*"]
+
+    # Rate limiting and request timeout guard only POST /query. They are
+    # added before CORSMiddleware so that CORSMiddleware ends up outermost
+    # in the stack (Starlette wraps in reverse-add order) and still attaches
+    # CORS headers to 429/504 responses returned directly by these guards.
+    application.add_middleware(TimeoutMiddleware)
+    application.add_middleware(RateLimitMiddleware)
 
     application.add_middleware(
         CORSMiddleware,
