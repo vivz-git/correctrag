@@ -50,6 +50,7 @@ const indexSuccessMessage = document.getElementById('indexSuccessMessage');
 const actionBadge = document.getElementById('actionBadge');
 const sourceSummaryBadge = document.getElementById('sourceSummaryBadge');
 const answerText = document.getElementById('answerText');
+const internalSourcesSection = document.getElementById('internalSourcesSection');
 const internalSourcesList = document.getElementById('internalSourcesList');
 const webSourcesList = document.getElementById('webSourcesList');
 const internalCountBadge = document.getElementById('internalCountBadge');
@@ -344,7 +345,16 @@ async function handleQuerySubmit(e) {
     answerText.innerHTML = formatAnswerContent(data.answer);
 
     // 3. Render Sources
-    renderInternalSources(data.retrieved_chunks, data.refined_strips);
+    // Retrieved internal chunks are only genuine "evidence used" for
+    // CORRECT/AMBIGUOUS. For INCORRECT the retrieval was rejected in favor
+    // of web search, so the internal candidates are hidden rather than
+    // presented as evidence that was actually used.
+    if (action === 'INCORRECT') {
+      internalSourcesSection.classList.add('hidden');
+    } else {
+      internalSourcesSection.classList.remove('hidden');
+      renderInternalSources(data.retrieved_chunks, data.refined_strips);
+    }
     renderWebSources(data.web_results);
 
     // 4. Render Trace

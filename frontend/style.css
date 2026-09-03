@@ -690,6 +690,17 @@ kbd {
   flex-shrink: 0;
 }
 
+/* Action badge is pinned to the trailing (right) edge of the meta group so
+   its horizontal position is fixed regardless of the source badge's width;
+   the source badge occupies the flexible slot before it. */
+.answer-meta .action-badge {
+  order: 2;
+}
+
+.answer-meta .source-summary-badge {
+  order: 1;
+}
+
 .source-summary-badge {
   display: inline-flex;
   align-items: center;
