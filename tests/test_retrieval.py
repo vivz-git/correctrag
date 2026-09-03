@@ -13,7 +13,7 @@ from app.retrieval.retriever import RetrievedChunk, VectorRetriever
 class MockEmbeddingModel(EmbeddingModel):
     @property
     def dimension(self) -> int:
-        return 3072
+        return 1024
     def embed_query(self, text: str) -> list[float]:
         # Use text length to create slightly different vectors
         val = 0.1 + (len(text) % 10) * 0.01
@@ -87,7 +87,7 @@ def test_embeddings_return_correct_shape_and_type(shared_embedding_model: Embedd
     assert all(isinstance(vec, list) for vec in embeddings)
     assert len(embeddings[0]) == shared_embedding_model.dimension
     assert len(embeddings[1]) == shared_embedding_model.dimension
-    assert shared_embedding_model.dimension == 3072
+    assert shared_embedding_model.dimension == 1024
 
 
 def test_embed_query_returns_consistent_vector(shared_embedding_model: EmbeddingModel):
@@ -101,6 +101,54 @@ def test_embed_query_returns_consistent_vector(shared_embedding_model: Embedding
 
 def test_embed_documents_empty_list(shared_embedding_model: EmbeddingModel):
     assert shared_embedding_model.embed_documents([]) == []
+
+
+def test_jina_embedding_tasks_and_payload(monkeypatch):
+    """Verify that embed_query and embed_documents send the correct task tags to Jina."""
+    from unittest.mock import MagicMock
+    import httpx
+
+    captured_requests = []
+
+    def mock_post(url, headers=None, json=None):
+        captured_requests.append({"url": url, "headers": headers, "json": json})
+        resp = MagicMock(spec=httpx.Response)
+        resp.status_code = 200
+        input_items = json.get("input", [])
+        resp.json.return_value = {
+            "model": json.get("model"),
+            "data": [
+                {"object": "embedding", "index": i, "embedding": [0.1] * 1024}
+                for i in range(len(input_items))
+            ],
+            "usage": {"total_tokens": 10},
+        }
+        resp.raise_for_status = MagicMock()
+        return resp
+
+    monkeypatch.setattr(httpx.Client, "post", lambda self, url, **kwargs: mock_post(url, **kwargs))
+
+    model = EmbeddingModel(api_key="test-key")
+    assert model.dimension == 1024
+
+    # Test embed_query task
+    q_vec = model.embed_query("test query")
+    assert len(q_vec) == 1024
+    assert len(captured_requests) == 1
+    assert captured_requests[0]["json"]["task"] == "retrieval.query"
+    assert captured_requests[0]["json"]["input"] == ["test query"]
+    assert captured_requests[0]["json"]["model"] == "jina-embeddings-v5-text-small"
+    assert captured_requests[0]["json"]["dimensions"] == 1024
+    assert captured_requests[0]["headers"]["Authorization"] == "Bearer test-key"
+
+    # Test embed_documents task
+    d_vecs = model.embed_documents(["doc text 1", "doc text 2"])
+    assert len(d_vecs) == 2
+    assert len(d_vecs[0]) == 1024
+    assert len(captured_requests) == 2
+    assert captured_requests[1]["json"]["task"] == "retrieval.passage"
+    assert captured_requests[1]["json"]["input"] == ["doc text 1", "doc text 2"]
+    assert captured_requests[1]["json"]["dimensions"] == 1024
 
 
 # ============================================================================

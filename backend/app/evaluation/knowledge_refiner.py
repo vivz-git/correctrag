@@ -148,7 +148,9 @@ class KnowledgeRefiner:
           1. Decompose documents into fine-grained strips with global position indices.
           2. Score each strip with the evaluator: s_i = Evaluator(query, strip_i).
           3. Filter strips where s_i < filter_threshold.
-          4. Rank surviving strips descending by relevance score and pick top_k.
+          4. Give each surviving parent chunk a coverage-floor representative
+             (its highest-scoring strip), rank representatives by score, and
+             fill any remaining top_k slots from the rest of the pool by score.
           5. Recompose chosen top_k strips in their original source order.
 
         Args:
@@ -213,9 +215,31 @@ class KnowledgeRefiner:
         if not surviving_strips:
             return []
 
-        # ── Step 4: Rank by relevance score and pick top_k ────────────────────
-        ranked_strips = sorted(surviving_strips, key=lambda s: s.score, reverse=True)
-        top_k_strips = ranked_strips[: self.top_k]
+        # ── Step 4: Per-parent-chunk coverage floor + global fill ─────────────
+        # Rationale: pure global top-k can let one chunk with many strong strips
+        # crowd out every strip from another retrieved (and possibly still
+        # relevant) chunk. We guarantee each surviving parent chunk a shot at
+        # a representative slot before filling remaining slots by raw score.
+        by_parent: dict[str, list[KnowledgeStrip]] = {}
+        for strip in surviving_strips:
+            by_parent.setdefault(strip.parent_chunk_id, []).append(strip)
+
+        representatives = [
+            max(strips, key=lambda s: (s.score, -s.position))
+            for strips in by_parent.values()
+        ]
+        representatives.sort(key=lambda s: (-s.score, s.position))
+
+        if len(representatives) >= self.top_k:
+            top_k_strips = representatives[: self.top_k]
+        else:
+            selected_ids = {id(s) for s in representatives}
+            remaining_pool = [
+                s for s in surviving_strips if id(s) not in selected_ids
+            ]
+            remaining_pool.sort(key=lambda s: (-s.score, s.position))
+            remaining_slots = self.top_k - len(representatives)
+            top_k_strips = representatives + remaining_pool[:remaining_slots]
 
         # ── Step 5: Recompose (restore original source order) ─────────────────
         recomposed_strips = sorted(top_k_strips, key=lambda s: s.position)

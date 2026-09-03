@@ -364,6 +364,104 @@ class TestKnowledgeRefinerWorkflow:
         with pytest.raises(TypeError, match="documents must be a list"):
             refiner.refine("query", "not a list")  # type: ignore
 
+    def test_coverage_floor_prevents_one_chunk_from_starving_another(self):
+        """A chunk with many high-scoring strips must not crowd out every
+        strip from another retrieved chunk that also survived filtering."""
+        chunk_a = make_chunk(
+            chunk_id="chunk_a",
+            text="A one. A two. A three. A four.",
+        )
+        chunk_b = make_chunk(
+            chunk_id="chunk_b",
+            text="B one.",
+        )
+        # Chunk A strips: 0.95, 0.9, 0.85, 0.8 (all high)
+        # Chunk B strip:  0.3  (lower, but still above threshold 0.0)
+        mock_eval = make_mock_evaluator(scores=[0.95, 0.9, 0.85, 0.8, 0.3])
+        refiner = KnowledgeRefiner(
+            evaluator=mock_eval,
+            sentences_per_strip=1,
+            filter_threshold=0.0,
+            top_k=2,
+        )
+
+        refined = refiner.refine("query", [chunk_a, chunk_b])
+
+        parent_ids = {s.parent_chunk_id for s in refined}
+        assert "chunk_b" in parent_ids, "chunk_b must receive a representative slot"
+        assert len(refined) == 2
+
+    def test_coverage_floor_then_global_fill(self):
+        """Representatives are picked first (one per parent chunk); any
+        remaining top_k slots are filled by highest global score."""
+        chunk_a = make_chunk(chunk_id="chunk_a", text="A one. A two. A three.")
+        chunk_b = make_chunk(chunk_id="chunk_b", text="B one. B two.")
+        # Chunk A: 0.9, 0.7, 0.6   Chunk B: 0.8, 0.5
+        mock_eval = make_mock_evaluator(scores=[0.9, 0.7, 0.6, 0.8, 0.5])
+        refiner = KnowledgeRefiner(
+            evaluator=mock_eval,
+            sentences_per_strip=1,
+            filter_threshold=0.0,
+            top_k=3,
+        )
+
+        refined = refiner.refine("query", [chunk_a, chunk_b])
+
+        scores = {s.score for s in refined}
+        # Representatives: A's best (0.9), B's best (0.8) -> 2 slots used.
+        # 1 remaining slot filled by next highest global score: A two (0.7).
+        assert scores == {0.9, 0.8, 0.7}
+        assert len(refined) == 3
+
+    def test_top_k_still_strictly_respected_with_more_chunks_than_top_k(self):
+        """When there are more surviving parent chunks than top_k,
+        only top_k representatives (by score) are kept."""
+        chunks = [
+            make_chunk(chunk_id=f"chunk_{i}", text=f"Sentence {i}.")
+            for i in range(5)
+        ]
+        # One strip per chunk; scores strictly descending by chunk index reversed
+        scores = [0.1, 0.9, 0.5, 0.7, 0.3]
+        mock_eval = make_mock_evaluator(scores=scores)
+        refiner = KnowledgeRefiner(
+            evaluator=mock_eval,
+            sentences_per_strip=1,
+            filter_threshold=0.0,
+            top_k=2,
+        )
+
+        refined = refiner.refine("query", chunks)
+
+        assert len(refined) == 2
+        assert {s.score for s in refined} == {0.9, 0.7}
+
+    def test_relevant_strip_survives_sentence_pair_boundary_crowding(self):
+        """Regression for the parity/crowding bug class: a relevant strip
+        must survive top_k selection regardless of which sentence-pair
+        boundary it falls on, as long as its parent chunk is represented."""
+        chunk_a = make_chunk(
+            chunk_id="chunk_a",
+            text="Alpha filler one. Alpha filler two. Alpha filler three. Alpha filler four.",
+        )
+        chunk_b = make_chunk(
+            chunk_id="chunk_b",
+            text="Beta filler one. Beta highly relevant answer.",
+        )
+        # Chunk A dominates on raw score for every strip.
+        # Chunk B's second strip (the actually relevant answer) is its best.
+        mock_eval = make_mock_evaluator(scores=[0.99, 0.98, 0.97, 0.96, 0.4, 0.6])
+        refiner = KnowledgeRefiner(
+            evaluator=mock_eval,
+            sentences_per_strip=1,
+            filter_threshold=0.0,
+            top_k=3,
+        )
+
+        refined = refiner.refine("query", [chunk_a, chunk_b])
+
+        texts = [s.text for s in refined]
+        assert "Beta highly relevant answer." in texts
+
     def test_refinement_is_deterministic(self):
         chunk = make_chunk(text="Sentence 1. Sentence 2. Sentence 3.")
         scores = [0.8, 0.4, 0.7]
