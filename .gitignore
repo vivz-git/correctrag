@@ -64,3 +64,6 @@ CRAG.pdf
 cached_embeddings.json
 .agents/
 .vercel/
+
+# Secrets / local tokens
+vercel_token
