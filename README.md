@@ -1,104 +1,170 @@
 # CorrectRAG
 
-CorrectRAG is a practical, lightweight engineering adaptation of the **Corrective Retrieval Augmented Generation (CRAG)** framework. 
+A corrective RAG system that evaluates retrieved evidence, chooses a corrective action, and uses web search when internal knowledge is insufficient.
 
-It is designed to be a clear, explainable, and production-oriented portfolio project that demonstrates how to implement intelligent semantic routing in RAG pipelines.
+Live Demo: https://frontend-cyan-seven-41.vercel.app/
 
-> **Note**: This project does NOT attempt to reproduce the original CRAG research paper exactly. Instead, it adapts the core concepts (evaluate retrieval, route actions, use web fallback) into a modern, lightweight, API-driven application architecture without heavy PyTorch dependencies.
+## How It Works
 
-## Key Features & Architecture
+Traditional RAG:
 
-Our adaptation replaces the heavy local ML dependencies (PyTorch, sentence-transformers, CrossEncoders, ChromaDB) with a fast, lightweight stack:
-
-1. **Lightweight Hosted Embeddings**: Uses the Gemini Embedding API (`gemini-embedding-2`) instead of heavy local models.
-2. **In-Memory Retrieval**: Uses a pure Python deterministic cosine similarity vector store.
-3. **Cheap Similarity Pre-filter**: Instantly routes clearly relevant or irrelevant queries using fast embedding math.
-4. **LLM Judgment for Borderline Cases**: Calls a `openai/gpt-oss-120b` LLM Judge (via Groq) *only* when retrieval quality is borderline, saving cost and latency.
-5. **Corrective Routing**: Routes to CORRECT, INCORRECT, or AMBIGUOUS branches based on the two-stage evaluation.
-6. **Optional Web Fallback**: Seamlessly queries Tavily to rewrite searches and inject web knowledge on INCORRECT or AMBIGUOUS routes.
-7. **Grounded Generation**: Uses Groq, OpenAI, or Gemini to synthesize the final grounded response.
-
-## CRAG Pipeline Workflow
-
+```text
+Query → Retrieve → Generate
 ```
+
+CorrectRAG adds retrieval evaluation:
+
+```text
 Query
-  → Semantic Retrieval (top-K chunks from PDF)
-  → Two-Stage Relevance Evaluator
-      1. Cheap Similarity Filter (Gemini embeddings)
-      2. LLM Judge (GPT-OSS 120B for borderline cases)
-  → Action Router (uses Judge decision)
-      ├── CORRECT    → Knowledge Refinement → Generation
-      ├── INCORRECT  → Query Rewriting → Web Search → Generation
-      └── AMBIGUOUS  → Combine Internal + Web Search → Generation
+  ↓
+Retrieve
+  ↓
+Evaluate Evidence
+  ↓
+┌────────────┬────────────┬────────────┐
+│  CORRECT   │ AMBIGUOUS  │ INCORRECT  │
+│  Refine    │ Internal + │ Web Search │
+│  Evidence  │ Web        │            │
+└────────────┴────────────┴────────────┘
+  ↓
+Grounded Answer
 ```
 
-The LLM judge returns a strict JSON decision with a reason. It *only* evaluates retrieval quality; it does not generate the final answer.
+## Architecture
+
+```mermaid
+flowchart TD
+    U[User] --> V[Vercel Frontend]
+    V -->|HTTPS| C[Caddy]
+    C --> F[FastAPI]
+
+    F --> RL[Rate Limiting]
+    RL --> TO[30s Timeout]
+    TO --> R[Vector Retrieval]
+
+    P1[PDFs 1-5] --> CH[500-char chunks / 100 overlap]
+    CH --> JE[Jina Embeddings v5 Text Small]
+    JE --> VS[Persistent Vector Store]
+
+    VS --> R
+    R --> E[Retrieval Evaluation]
+    E --> J[Groq LLM Judge]
+    J --> A{Action Router}
+
+    A -->|CORRECT| KR[Knowledge Refinement]
+    A -->|AMBIGUOUS| HY[Internal + Tavily]
+    A -->|INCORRECT| TW[Tavily Search]
+
+    KR --> G[Groq GPT-OSS 120B]
+    HY --> G
+    TW --> G
+
+    G --> S[Answer + Source/Page]
+    S --> V
+```
+
+## Key Features
+
+* Multi-PDF knowledge base
+* Maximum 5 PDFs, 25 MB each
+* Source and page provenance
+* Retrieval quality evaluation
+* Knowledge refinement
+* Tavily web fallback
+* Jina 1024-dimensional embeddings
+* Groq GPT-OSS 120B
+* 10 requests/minute per IP
+* 30-second request timeout
+* HTTPS with Caddy
+* Docker + AWS EC2 deployment
 
 ## Tech Stack
 
-- **Backend**: Python 3.10+, FastAPI, Pydantic, pytest
-- **Embeddings**: Gemini (`gemini-embedding-2`)
-- **Judge LLM**: Groq (`openai/gpt-oss-120b` by default, configurable via `GROQ_MODEL`)
-- **Generation LLM**: Gemini / Groq / OpenAI (configurable)
-- **Web Search**: Tavily API
-- **Deployment**: Docker Compose (multi-architecture)
-
-## Local Development Setup
-
-### 1. Requirements
-- Python 3.10+
-- Valid API keys for Gemini, Groq, and Tavily
-
-### 2. Environment Variables
-Create a `.env` file in the project root:
-```bash
-GEMINI_API_KEY="your-gemini-key"
-GROQ_API_KEY="your-groq-key"
-TAVILY_API_KEY="your-tavily-key"
+```text
+Frontend:  HTML, CSS, JavaScript, Vercel
+Backend:   Python, FastAPI, Pydantic
+RAG:       Jina Embeddings, Vector Store, Cosine Similarity
+LLM:       Groq GPT-OSS 120B
+Search:    Tavily
+Deploy:    Docker, EC2 t4g.micro, Caddy, HTTPS
 ```
 
-### 3. Install Dependencies
+## Project Structure
+
+```text
+correctrag/
+├── backend/app/
+│   ├── api/
+│   ├── evaluation/
+│   ├── ingestion/
+│   ├── pipeline/
+│   └── retrieval/
+├── frontend/
+├── tests/
+├── scripts/
+├── evaluation/
+├── CRAG.pdf
+├── README.md
+└── CLAUDE.md
+```
+
+## Setup
+
 ```bash
-python -m venv venv
-source venv/bin/activate  # On Windows: venv\Scripts\activate
+git clone <YOUR_GITHUB_REPOSITORY_URL>
+cd correctrag
+
+python -m venv .venv
 pip install -r backend/requirements.txt
+
+uvicorn app.main:app --app-dir backend --reload
 ```
 
-### 4. Run the Server
+Environment variables:
+
+```env
+JINA_API_KEY=your_jina_api_key
+GROQ_API_KEY=your_groq_api_key
+TAVILY_API_KEY=your_tavily_api_key
+```
+
+Never commit `.env` or API keys.
+
+## Re-indexing
+
 ```bash
-uvicorn backend.app.main:app --reload --port 8000
+python scripts/reindex_corpus.py
 ```
 
-Interactive OpenAPI documentation is available at `http://localhost:8000/docs`.
+Current corpus:
 
-## Docker Deployment
+```text
+168 chunks
+1024-dimensional embeddings
+```
 
-CorrectRAG includes a containerized multi-service setup.
+## Testing
 
 ```bash
-docker compose up --build
-```
-This starts the backend API on port 8000 and the browser UI on port 3000.
-The resulting container is heavily optimized (linux/arm64 is ~208MB) and offers instant `/health` readiness.
-
-## Before vs CorrectRAG Evaluation
-
-In a controlled 12-question evaluation across in-domain, weak-evidence, out-of-domain, and tricky queries using `openai/gpt-oss-120b`:
-- **Groundedness**: Both systems maintained 100% grounded answers (12/12) with 0 unsupported claims or hallucinations.
-- **Web Fallback Utility**: On out-of-domain questions where Plain RAG was forced to refuse (e.g., 2023 World Cup winner, Australian capital), CorrectRAG's LLM judge accurately classified internal context as `INCORRECT`, triggering query rewriting and Tavily web search to successfully answer the queries.
-- **Cost Efficiency**: The Stage 2 LLM Judge was called only on borderline or out-of-domain queries (4 / 12 queries), bypassing LLM overhead completely for clear in-domain matches.
-
-See [`evaluation/before_after/summary.md`](evaluation/before_after/summary.md) for full question-by-question results.
-
-## Test Coverage
-
-The project is backed by a robust, 294-test suite covering everything from PDF ingestion and vector similarity math to LLM parsing and pipeline orchestrations.
-
-To run the tests locally:
-```bash
-pytest -v tests
+pytest -q tests
 ```
 
----
+340+ tests cover ingestion, indexing, retrieval, refinement, CRAG routing, API behavior, rate limiting, timeouts, and regressions.
 
-*This is a portfolio project intended to demonstrate professional API engineering, testing, and modern GenAI patterns.*
+## Engineering Highlights
+
+* Evidence-aware retrieval instead of blindly trusting search results
+* Corrective routing between internal knowledge and web search
+* Multi-document provenance
+* Lightweight deployment without Redis, RDS, ECS, or a dedicated vector database
+* Explicit and testable CRAG pipeline
+
+## Limitations
+
+Designed for portfolio/demo use.
+
+* 5 PDF limit
+* 25 MB per PDF
+* Single vector store
+* In-memory rate limiting
+* No authentication or multi-tenancy
