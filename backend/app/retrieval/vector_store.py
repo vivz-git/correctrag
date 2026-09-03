@@ -54,7 +54,7 @@ class InMemoryVectorStore:
                 if hasattr(self.embedding_model, "_cache"):
                     for c_data in self.chunks.values():
                         if "document" in c_data and "embedding" in c_data:
-                            self.embedding_model._cache[c_data["document"]] = c_data["embedding"]
+                            self.embedding_model._cache[f"retrieval.passage:{c_data['document']}"] = c_data["embedding"]
             except Exception:
                 self.chunks = {}
 
@@ -159,6 +159,15 @@ class InMemoryVectorStore:
     def count(self) -> int:
         """Return the total number of documents in the collection."""
         return len(self.chunks)
+
+    def get_indexed_documents(self) -> dict[str, int]:
+        """Return a mapping of indexed document source names to their chunk counts."""
+        doc_counts: dict[str, int] = {}
+        for c_data in self.chunks.values():
+            meta = c_data.get("metadata", {})
+            source = meta.get("source", "unknown")
+            doc_counts[source] = doc_counts.get(source, 0) + 1
+        return doc_counts
 
     def clear(self) -> None:
         """Delete all documents in the current collection and reset."""

@@ -118,6 +118,9 @@ class EmbeddingModel:
         if not text or not text.strip():
             return [0.0] * self.dimension
 
+        cache_key = f"retrieval.query:{text}"
+        if cache_key in self._cache:
+            return self._cache[cache_key]
         if text in self._cache:
             return self._cache[text]
 
@@ -126,7 +129,7 @@ class EmbeddingModel:
             raise RuntimeError(f"Jina AI API returned empty embedding list for query: {text!r}")
 
         emb = embeddings[0]
-        self._cache[text] = emb
+        self._cache[cache_key] = emb
         return emb
 
     def embed_documents(self, texts: list[str]) -> list[list[float]]:
@@ -148,12 +151,16 @@ class EmbeddingModel:
         for i, t in enumerate(texts):
             if not t or not t.strip():
                 results.append([0.0] * self.dimension)
-            elif t in self._cache:
-                results.append(self._cache[t])
             else:
-                results.append(None)
-                uncached.append(t)
-                uncached_indices.append(i)
+                cache_key = f"retrieval.passage:{t}"
+                if cache_key in self._cache:
+                    results.append(self._cache[cache_key])
+                elif t in self._cache:
+                    results.append(self._cache[t])
+                else:
+                    results.append(None)
+                    uncached.append(t)
+                    uncached_indices.append(i)
 
         if uncached:
             batch_size = 64
@@ -165,6 +172,6 @@ class EmbeddingModel:
 
             for idx, emb, t in zip(uncached_indices, all_uncached_embs, uncached):
                 results[idx] = emb
-                self._cache[t] = emb
+                self._cache[f"retrieval.passage:{t}"] = emb
 
         return [r for r in results if r is not None]

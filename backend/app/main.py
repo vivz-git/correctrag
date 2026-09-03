@@ -23,7 +23,7 @@ from app.api.routes import router as api_router
 async def lifespan(app: FastAPI):
     """Startup and shutdown events."""
     from app.api.routes import get_crag_pipeline
-    from app.ingestion.pdf_loader import load_pdf
+    from app.ingestion.pdf_loader import load_documents_dir, load_pdf
 
     async def _index_background():
         try:
@@ -31,16 +31,27 @@ async def lifespan(app: FastAPI):
             vector_store = pipeline.retriever.vector_store
 
             if vector_store.count() == 0:
-                print("Vector store is empty. Indexing CRAG.pdf...")
                 root_dir = Path(__file__).resolve().parent.parent.parent
-                pdf_path = root_dir / "CRAG.pdf"
-                if pdf_path.exists():
-                    chunks = load_pdf(pdf_path, chunk_size=500, chunk_overlap=100)
+                docs_dir_env = os.environ.get("DOCUMENTS_DIR")
+                docs_dir = Path(docs_dir_env) if docs_dir_env else (root_dir / "data" / "documents")
+
+                chunks = []
+                if docs_dir.is_dir():
+                    chunks = load_documents_dir(docs_dir, chunk_size=500, chunk_overlap=100)
+
+                if not chunks:
+                    pdf_path = root_dir / "CRAG.pdf"
+                    if pdf_path.exists():
+                        print(f"Vector store is empty. Indexing {pdf_path.name}...")
+                        chunks = load_pdf(pdf_path, chunk_size=500, chunk_overlap=100)
+                    else:
+                        print(f"WARNING: No documents found in {docs_dir} or {pdf_path}. Knowledge base remains empty.")
+
+                if chunks:
                     loop = asyncio.get_running_loop()
                     await loop.run_in_executor(None, vector_store.add_chunks, chunks)
-                    print(f"Indexed {len(chunks)} chunks into vector store.")
-                else:
-                    print(f"WARNING: {pdf_path} not found. Knowledge base remains empty.")
+                    doc_counts = vector_store.get_indexed_documents()
+                    print(f"Indexed {len(chunks)} chunks across {len(doc_counts)} document(s) into vector store: {doc_counts}")
         except Exception as e:
             print(f"Error during background indexing: {e}")
 

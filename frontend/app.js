@@ -166,7 +166,7 @@ function renderInternalSources(chunks, strips) {
         ? (chunk.score > 0 ? '+' : '') + chunk.score.toFixed(4)
         : '';
 
-    const rawSource = chunk.source || "CRAG.pdf";
+    const rawSource = chunk.source || "Document";
     const sourceName = rawSource.split('/').pop().split('\\').pop();
 
     item.innerHTML =

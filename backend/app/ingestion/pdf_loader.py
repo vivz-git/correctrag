@@ -20,6 +20,10 @@ def _get_pymupdf():
         return fitz
 
 
+MAX_PDF_COUNT = 5
+MAX_PDF_SIZE_BYTES = 25 * 1024 * 1024  # 25 MB
+
+
 class DocumentChunk(BaseModel):
     """Structured representation of a document chunk."""
 
@@ -53,6 +57,18 @@ class InvalidPDFError(PDFIngestionError, ValueError):
 
 class EmptyPDFError(PDFIngestionError, ValueError):
     """Raised when the PDF has no pages or contains no extractable text."""
+
+    pass
+
+
+class PDFLimitExceededError(PDFIngestionError, ValueError):
+    """Raised when the number of PDFs exceeds the allowed maximum of 5."""
+
+    pass
+
+
+class PDFSizeLimitExceededError(PDFIngestionError, ValueError):
+    """Raised when a PDF file exceeds the allowed size limit of 25 MB."""
 
     pass
 
@@ -171,10 +187,18 @@ def chunk_text(text: str, chunk_size: int = 500, chunk_overlap: int = 100) -> li
     return chunks
 
 
+def sanitize_doc_slug(filename: str) -> str:
+    """Generate a clean, deterministic document slug for unique chunk ID prefixing."""
+    stem = Path(filename).stem
+    cleaned = re.sub(r"[^\w\-]", "_", stem).strip("_")
+    return cleaned or "doc"
+
+
 def load_pdf(
     file_path: str | Path,
     chunk_size: int = 500,
     chunk_overlap: int = 100,
+    doc_id_override: str | None = None,
 ) -> list[DocumentChunk]:
     """Load a PDF document, extract text per page, clean artifacts, and chunk deterministically.
 
@@ -182,12 +206,14 @@ def load_pdf(
         file_path: Local filesystem path to the PDF file.
         chunk_size: Target maximum character length for each chunk.
         chunk_overlap: Number of characters to overlap between consecutive chunks.
+        doc_id_override: Optional explicit document identifier for chunk ID prefixing.
 
     Returns:
         A list of DocumentChunk instances with deterministic IDs and page metadata.
 
     Raises:
         PDFNotFoundError: If the file does not exist.
+        PDFSizeLimitExceededError: If the file exceeds 25 MB.
         InvalidPDFError: If the file is not a valid PDF or is corrupted.
         EmptyPDFError: If the PDF contains no extractable text across all pages.
     """
@@ -195,6 +221,12 @@ def load_pdf(
 
     if not path.is_file():
         raise PDFNotFoundError(f"PDF file not found at path: '{path.resolve()}'")
+
+    file_size = path.stat().st_size
+    if file_size > MAX_PDF_SIZE_BYTES:
+        raise PDFSizeLimitExceededError(
+            f"PDF file '{path.name}' size ({file_size / (1024 * 1024):.2f} MB) exceeds maximum allowed limit of 25 MB."
+        )
 
     try:
         pymupdf_lib = _get_pymupdf()
@@ -209,7 +241,7 @@ def load_pdf(
         all_chunks: list[DocumentChunk] = []
         has_any_text = False
         source_name = path.name
-        stem = re.sub(r"[^\w\-]", "_", path.stem)
+        stem = doc_id_override or sanitize_doc_slug(path.name)
 
         for page_idx in range(len(doc)):
             page = doc[page_idx]
@@ -241,6 +273,7 @@ def load_pdf(
                             "char_length": len(chunk_content),
                             "page_number": page_number,
                             "source_file": source_name,
+                            "doc_id": stem,
                         },
                     )
                 )
@@ -254,3 +287,82 @@ def load_pdf(
 
     finally:
         doc.close()
+
+
+def load_multiple_pdfs(
+    file_paths: list[str | Path],
+    chunk_size: int = 500,
+    chunk_overlap: int = 100,
+) -> list[DocumentChunk]:
+    """Load, clean, and chunk multiple PDF documents with collision-resistant chunk IDs.
+
+    Args:
+        file_paths: List of file paths to PDF documents. Maximum 5 PDFs allowed.
+        chunk_size: Target maximum character length for each chunk.
+        chunk_overlap: Number of characters to overlap between consecutive chunks.
+
+    Returns:
+        Combined list of DocumentChunk instances across all documents.
+
+    Raises:
+        PDFLimitExceededError: If len(file_paths) > 5.
+    """
+    if len(file_paths) > MAX_PDF_COUNT:
+        raise PDFLimitExceededError(
+            f"Cannot load {len(file_paths)} PDFs. Maximum allowed is {MAX_PDF_COUNT}."
+        )
+
+    all_chunks: list[DocumentChunk] = []
+    seen_stems: dict[str, int] = {}
+
+    for fp in file_paths:
+        path = Path(fp)
+        base_stem = sanitize_doc_slug(path.name)
+        seen_stems[base_stem] = seen_stems.get(base_stem, 0) + 1
+        if seen_stems[base_stem] > 1:
+            doc_id = f"{base_stem}_{seen_stems[base_stem]}"
+        else:
+            doc_id = base_stem
+
+        chunks = load_pdf(
+            path,
+            chunk_size=chunk_size,
+            chunk_overlap=chunk_overlap,
+            doc_id_override=doc_id,
+        )
+        all_chunks.extend(chunks)
+
+    return all_chunks
+
+
+def load_documents_dir(
+    dir_path: str | Path,
+    chunk_size: int = 500,
+    chunk_overlap: int = 100,
+) -> list[DocumentChunk]:
+    """Discover and ingest all PDF files in a directory up to the 5-PDF limit.
+
+    Args:
+        dir_path: Local filesystem directory containing PDF files.
+        chunk_size: Target maximum character length for each chunk.
+        chunk_overlap: Number of characters to overlap between consecutive chunks.
+
+    Returns:
+        Combined list of DocumentChunk instances across all discovered PDF documents.
+    """
+    path = Path(dir_path)
+    if not path.is_dir():
+        return []
+
+    pdf_files = sorted(
+        [p for p in path.iterdir() if p.is_file() and p.suffix.lower() == ".pdf"],
+        key=lambda p: p.name.lower(),
+    )
+    if not pdf_files:
+        return []
+
+    return load_multiple_pdfs(
+        pdf_files,
+        chunk_size=chunk_size,
+        chunk_overlap=chunk_overlap,
+    )
