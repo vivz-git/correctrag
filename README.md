@@ -4,6 +4,8 @@ A corrective RAG system that evaluates retrieved evidence, chooses a corrective 
 
 Live Demo: https://frontend-cyan-seven-41.vercel.app/
 
+API Health: https://13.235.51.127.sslip.io/health
+
 ## How It Works
 
 Traditional RAG:
@@ -65,6 +67,7 @@ flowchart TD
 
 ## Key Features
 
+* Corrective routing (CORRECT / AMBIGUOUS / INCORRECT)
 * Multi-PDF knowledge base
 * Maximum 5 PDFs, 25 MB each
 * Source and page provenance
@@ -111,7 +114,7 @@ correctrag/
 ## Setup
 
 ```bash
-git clone <YOUR_GITHUB_REPOSITORY_URL>
+git clone https://github.com/vivz-git/correctrag.git
 cd correctrag
 
 python -m venv .venv
@@ -149,7 +152,11 @@ Current corpus:
 pytest -q tests
 ```
 
-340+ tests cover ingestion, indexing, retrieval, refinement, CRAG routing, API behavior, rate limiting, timeouts, and regressions.
+360 tests cover ingestion, indexing, retrieval, refinement, CRAG routing, API behavior, rate limiting, timeouts, and regressions.
+
+## Resume-Ready Description
+
+Built CorrectRAG, a corrective retrieval-augmented generation service (FastAPI + Gemini/Jina embeddings + Groq LLM judge) that scores retrieved evidence before generation, routes low-confidence queries to Tavily web search, and enforces multi-document source/page provenance, per-IP rate limiting, and request timeouts; deployed on AWS EC2 behind Caddy/HTTPS with a Vercel frontend, backed by 360 automated tests.
 
 ## Engineering Highlights
 

@@ -43,11 +43,74 @@ class KnowledgeStrip(BaseModel):
     position: int = Field(..., description="Original sequential index across document strips")
 
 
+def _is_structured_layout(text: str) -> bool:
+    """Detect layout-dense text (tables, pseudocode, figure/diagram text) via a
+    line-density heuristic: at least 6 non-empty lines, with at least 60% of
+    those lines containing 3 or fewer whitespace-separated words.
+
+    Sentence splitting fragments this kind of content (e.g. a table caption
+    ending in "." gets isolated from the row data above it), so callers use
+    this to keep the whole block as one strip instead.
+    """
+    lines = [line.strip() for line in text.split("\n") if line.strip()]
+    if len(lines) < 6:
+        return False
+    short_lines = sum(1 for line in lines if len(line.split()) <= 3)
+    return (short_lines / len(lines)) >= 0.6
+
+
+def _find_structured_prefix_split(text: str) -> Optional[int]:
+    """Within a structured-layout block, find where a trailing narrative run begins.
+
+    A run qualifies once it reaches >= 4 consecutive non-empty lines that each
+    contain more than 3 whitespace-separated words -- e.g. a figure/table block
+    that is followed by ordinary prose paragraphs in the same parent chunk.
+    Only the first such qualifying run is used, and only when it does not begin
+    at the block's very first non-empty line (there would be no structured
+    prefix left to preserve in that case).
+
+    Args:
+        text: The already-stripped structured-layout block text.
+
+    Returns:
+        Raw line index (into text.split("\n")) where the narrative suffix
+        begins, or None if no qualifying trailing run exists.
+    """
+    raw_lines = text.split("\n")
+    non_empty = [(i, line.strip()) for i, line in enumerate(raw_lines) if line.strip()]
+
+    run_start_pos: Optional[int] = None
+    run_len = 0
+    for pos, (raw_idx, line) in enumerate(non_empty):
+        if len(line.split()) > 3:
+            if run_len == 0:
+                run_start_pos = pos
+            run_len += 1
+            if run_len >= 4:
+                if run_start_pos == 0:
+                    return None
+                return non_empty[run_start_pos][0]
+        else:
+            run_len = 0
+            run_start_pos = None
+
+    return None
+
+
 def decompose_text_into_strips(text: str, sentences_per_strip: int = 2) -> list[str]:
     """Decompose document text into sentence-based knowledge strips.
 
     Short text (single sentence or <= sentences_per_strip) remains a single strip.
     Otherwise, consecutive sentences are grouped into strips of size sentences_per_strip.
+
+    Structured/layout-dense text (tables, pseudocode, figure/diagram text) is
+    detected via a line-density heuristic and kept as a single bounded strip
+    instead, since sentence splitting would separate row data from captions
+    that happen to share the same parent chunk. If that structured block ends
+    in a trailing run of >= 4 consecutive narrative-looking lines (ordinary
+    prose following a figure/table in the same chunk), the structured prefix
+    is preserved as one strip and the narrative suffix is decomposed with the
+    normal sentence-based logic below.
 
     Args:
         text: Raw text of the retrieved chunk.
@@ -59,6 +122,17 @@ def decompose_text_into_strips(text: str, sentences_per_strip: int = 2) -> list[
     clean_text = text.strip()
     if not clean_text:
         return []
+
+    if _is_structured_layout(clean_text):
+        split_at = _find_structured_prefix_split(clean_text)
+        if split_at is not None:
+            raw_lines = clean_text.split("\n")
+            prefix_text = "\n".join(raw_lines[:split_at]).strip()
+            suffix_text = "\n".join(raw_lines[split_at:]).strip()
+            return [prefix_text] + decompose_text_into_strips(
+                suffix_text, sentences_per_strip=sentences_per_strip
+            )
+        return [clean_text]
 
     # Split on sentence-ending punctuation (.!?) followed by whitespace
     raw_sentences = [
@@ -151,6 +225,12 @@ class KnowledgeRefiner:
           4. Give each surviving parent chunk a coverage-floor representative
              (its highest-scoring strip), rank representatives by score, and
              fill any remaining top_k slots from the rest of the pool by score.
+          4b. Document-level coverage floor: if a distinct surviving source
+              document ended up with zero selected strips (because every one
+              of its parent-chunk representatives scored below the cutoff),
+              admit its best representative by displacing the weakest
+              selected strip from a source that still has at least one other
+              selected strip.
           5. Recompose chosen top_k strips in their original source order.
 
         Args:
@@ -241,7 +321,73 @@ class KnowledgeRefiner:
             remaining_slots = self.top_k - len(representatives)
             top_k_strips = representatives + remaining_pool[:remaining_slots]
 
+        # ── Step 4b: Document-level coverage floor ─────────────────────────────
+        top_k_strips = self._apply_document_floor(
+            top_k_strips, representatives, surviving_strips
+        )
+
         # ── Step 5: Recompose (restore original source order) ─────────────────
         recomposed_strips = sorted(top_k_strips, key=lambda s: s.position)
 
         return recomposed_strips
+
+    @staticmethod
+    def _apply_document_floor(
+        top_k_strips: list[KnowledgeStrip],
+        representatives: list[KnowledgeStrip],
+        surviving_strips: list[KnowledgeStrip],
+    ) -> list[KnowledgeStrip]:
+        """Ensure every surviving source document holds a selected slot where possible.
+
+        Rationale: the per-parent-chunk coverage floor guarantees every surviving
+        *chunk* a shot at a representative slot, but when a single source contributes
+        many parent chunks that collectively outscore every chunk from another
+        source, the top_k cutoff on `representatives` can still drop that other
+        source entirely. This pass admits one representative per fully-starved
+        source by displacing the weakest currently-selected strip from a source
+        that has at least one other selected strip -- never reducing any source
+        to zero. top_k size and the caller's recomposition step are unaffected.
+
+        Args:
+            top_k_strips: Strips selected by the per-parent-chunk floor + fill step.
+            representatives: One highest-scoring strip per surviving parent chunk.
+            surviving_strips: All strips that passed the relevance filter.
+
+        Returns:
+            The (possibly adjusted) list of selected strips, same length as input.
+        """
+        all_sources = {s.source for s in surviving_strips}
+        if len(all_sources) <= 1:
+            return top_k_strips
+
+        selected = list(top_k_strips)
+        missing_sources = all_sources - {s.source for s in selected}
+        if not missing_sources:
+            return selected
+
+        reps_by_source: dict[str, list[KnowledgeStrip]] = {}
+        for rep in representatives:
+            reps_by_source.setdefault(rep.source, []).append(rep)
+
+        # Best available representative per missing source, highest scoring first.
+        candidates = [
+            max(reps_by_source[source], key=lambda s: (s.score, -s.position))
+            for source in missing_sources
+            if source in reps_by_source
+        ]
+        candidates.sort(key=lambda s: (-s.score, s.position))
+
+        for candidate in candidates:
+            source_counts: dict[str, int] = {}
+            for s in selected:
+                source_counts[s.source] = source_counts.get(s.source, 0) + 1
+
+            displaceable = [s for s in selected if source_counts[s.source] >= 2]
+            if not displaceable:
+                # No source can spare a slot without being fully starved itself.
+                continue
+
+            weakest = min(displaceable, key=lambda s: (s.score, -s.position))
+            selected = [s for s in selected if s is not weakest] + [candidate]
+
+        return selected

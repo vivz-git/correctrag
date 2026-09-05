@@ -34,6 +34,8 @@ htmlcov/
 
 # Vector Store / Local DBs
 chroma_data/
+data/
+*.pkl
 *.chroma
 *.sqlite3
 *.db
