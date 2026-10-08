@@ -33,16 +33,18 @@ User Query: {query}
 Retrieved Evidence:
 {evidence}
 
-Does the retrieved evidence directly answer or strongly support the query?
-Is the evidence only partially useful or missing important information?
-Is the evidence unrelated or misleading?
+Evaluation guidelines:
+- CORRECT: The evidence directly addresses the query's subject matter. It does NOT need to
+  contain exact numerical values from external sources — approximate figures, equivalent
+  statistics, or prose that clearly describes the same fact are sufficient. If the evidence
+  provides the core substance needed to answer the query, classify as CORRECT.
+- AMBIGUOUS: The evidence is only tangentially related, covers only part of a multi-part
+  query, or the connection to the query requires significant inference.
+- INCORRECT: The evidence is genuinely unrelated to the query topic, or is contradictory /
+  misleading. Do NOT classify as INCORRECT merely because exact numbers differ slightly or
+  because phrasing is different from what the query implies.
 
-Evaluate the quality of the evidence and respond with exactly ONE of these classifications:
-CORRECT: The retrieved context is directly relevant and sufficient.
-AMBIGUOUS: The context is partially relevant, incomplete, or uncertain.
-INCORRECT: The context is irrelevant or misleading.
-
-Also provide a concise one-line reason.
+Respond with exactly ONE of these classifications and a concise one-line reason.
 
 Respond in strict JSON format:
 {{
