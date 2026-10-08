@@ -154,10 +154,6 @@ pytest -q tests
 
 360 tests cover ingestion, indexing, retrieval, refinement, CRAG routing, API behavior, rate limiting, timeouts, and regressions.
 
-## Resume-Ready Description
-
-Built CorrectRAG, a corrective retrieval-augmented generation service (FastAPI + Gemini/Jina embeddings + Groq LLM judge) that scores retrieved evidence before generation, routes low-confidence queries to Tavily web search, and enforces multi-document source/page provenance, per-IP rate limiting, and request timeouts; deployed on AWS EC2 behind Caddy/HTTPS with a Vercel frontend, backed by 360 automated tests.
-
 ## Engineering Highlights
 
 * Evidence-aware retrieval instead of blindly trusting search results
