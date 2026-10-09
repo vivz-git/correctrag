@@ -97,6 +97,49 @@ def _find_structured_prefix_split(text: str) -> Optional[int]:
     return None
 
 
+# Common abbreviations where a trailing dot does not indicate a sentence boundary.
+_ABBREVIATIONS = frozenset({
+    "fig", "figs", "eg", "e.g", "ie", "i.e", "al", "vs", "etc",
+    "dr", "mr", "mrs", "ms", "prof", "no", "vol", "pp", "p", "ref", "approx",
+    "dept", "univ", "corp", "inc", "ltd",
+})
+
+
+def _split_sentences(text: str) -> list[str]:
+    """Split text into sentences, protecting common abbreviations and lowercase continuations."""
+    candidates = list(re.finditer(r"([.!?])\s+", text))
+    if not candidates:
+        return [text] if text.strip() else []
+
+    split_indices = []
+    for m in candidates:
+        punct = m.group(1)
+        if punct == ".":
+            prec = re.search(r"([A-Za-z]+)\Z", text[: m.start()])
+            if prec and prec.group(1).lower() in _ABBREVIATIONS:
+                continue
+            following = text[m.end() :]
+            if following and following[0].islower():
+                continue
+        split_indices.append((m.start() + 1, m.end()))
+
+    if not split_indices:
+        return [text] if text.strip() else []
+
+    sentences = []
+    prev_end = 0
+    for split_start, split_end in split_indices:
+        sent = text[prev_end:split_start].strip()
+        if sent:
+            sentences.append(sent)
+        prev_end = split_end
+    last = text[prev_end:].strip()
+    if last:
+        sentences.append(last)
+
+    return sentences
+
+
 def decompose_text_into_strips(text: str, sentences_per_strip: int = 2) -> list[str]:
     """Decompose document text into sentence-based knowledge strips.
 
@@ -134,12 +177,8 @@ def decompose_text_into_strips(text: str, sentences_per_strip: int = 2) -> list[
             )
         return [clean_text]
 
-    # Split on sentence-ending punctuation (.!?) followed by whitespace
-    raw_sentences = [
-        s.strip()
-        for s in re.split(r"(?<=[.!?])\s+", clean_text)
-        if s.strip()
-    ]
+    # Split into sentences protecting abbreviations and continuations
+    raw_sentences = _split_sentences(clean_text)
 
     if not raw_sentences:
         return [clean_text]
